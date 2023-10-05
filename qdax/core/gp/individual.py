@@ -17,13 +17,13 @@ def levels_back_transformation_function(
     n_in: int,
     n_nodes: int
 ) -> Callable[[jnp.ndarray], jnp.ndarray]:
-    def _genome_transformation_function(genome: jnp.ndarray) -> jnp.ndarray:
+    def _levels_back_transformation_function(genome: jnp.ndarray) -> jnp.ndarray:
         x_genes, y_genes, other_genes = jnp.split(genome, [n_nodes, 2 * n_nodes])
         x_genes = jnp.arange(n_in, n_in + n_nodes) - x_genes - 1
         y_genes = jnp.arange(n_in, n_in + n_nodes) - y_genes - 1
         return jnp.concatenate((x_genes, y_genes, other_genes))
 
-    return _genome_transformation_function
+    return _levels_back_transformation_function
 
 
 def compute_mutation_mask(
