@@ -28,6 +28,9 @@ Descriptor: TypeAlias = jnp.ndarray
 Centroid: TypeAlias = jnp.ndarray
 Gradient: TypeAlias = jnp.ndarray
 
+# CGP/LGP types
+ProgramState: TypeAlias = jnp.ndarray
+
 Skill: TypeAlias = jnp.ndarray
 
 ExtraScores: TypeAlias = Dict[str, ArrayTree]
