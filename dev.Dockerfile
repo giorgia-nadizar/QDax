@@ -25,7 +25,7 @@ COPY requirements-dev.txt ./
 RUN pip install -r requirements-dev.txt
 
 
-FROM nvidia/cuda:11.4.1-cudnn8-devel-ubuntu20.04 as cuda-image
+FROM nvidia/cuda:11.3.1-cudnn8-devel-ubuntu20.04 as cuda-image
 ENV PATH=/opt/conda/envs/qdaxpy38/bin/:$PATH APP_FOLDER=/app
 ENV PYTHONPATH=$APP_FOLDER:$PYTHONPATH
 
@@ -54,38 +54,38 @@ RUN groupadd --gid ${GROUP_ID} $GROUP && useradd -g $GROUP --uid ${USER_ID} --sh
 USER $USER
 
 
-FROM cuda-image as dev-image
-# The dev-image does not contain the any file, qdax is expected to be mounted
-# afterwards
-
-USER root
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    curl \
-    ffmpeg \
-    git \
-    libgl1-mesa-dev \
-    libgl1-mesa-glx \
-    libglfw3 \
-    libosmesa6-dev \
-    patchelf \
-    python3-opengl \
-    python3-dev=3.8* \
-    python3-pip \
-    screen \
-    sudo \
-    tmux \
-    unzip \
-    vim \
-    wget \
-    nano \
-    xvfb && \
-    rm -rf /var/lib/apt/lists/*
-
-
-COPY requirements-dev.txt /tmp/requirements-dev.txt
-RUN pip --no-cache-dir install -r /tmp/requirements-dev.txt && rm -rf /tmp/*
-USER $USER
+#FROM cuda-image as dev-image
+## The dev-image does not contain the any file, qdax is expected to be mounted
+## afterwards
+#RUN apt-get install -y apt-transport-https
+#USER root
+#RUN apt-get update && \
+#    apt-get install -y --no-install-recommends \
+#    curl \
+#    ffmpeg \
+#    git \
+#    libgl1-mesa-dev \
+#    libgl1-mesa-glx \
+#    libglfw3 \
+#    libosmesa6-dev \
+#    patchelf \
+#    python3-opengl \
+#    python3-dev=3.8* \
+#    python3-pip \
+#    screen \
+#    sudo \
+#    tmux \
+#    unzip \
+#    vim \
+#    wget \
+#    nano \
+#    xvfb && \
+#    rm -rf /var/lib/apt/lists/*
+#
+#
+#COPY requirements-dev.txt /tmp/requirements-dev.txt
+#RUN pip --no-cache-dir install -r /tmp/requirements-dev.txt && rm -rf /tmp/*
+#USER $USER
 
 FROM cuda-image as run-image
 # The run-image (default) is the same as the dev-image with the some files directly
