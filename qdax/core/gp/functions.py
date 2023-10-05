@@ -13,17 +13,26 @@ from jax.lax import cond, switch
 @register_pytree_node_class
 class JaxFunction:
 
-    def __init__(self, op: Callable[[float, float], float], arity: int, symbol: str = None) -> None:
+    def __init__(
+        self,
+        op: Callable[[float, float], float],
+        arity: int,
+        symbol: str = None
+    ) -> None:
         self.operator = jit(op)
         self.arity = arity
         self.symbol = symbol if symbol is not None else op.__name__
         pass
 
     @partial(jit, static_argnums=0)
-    def apply(self, x, y):
+    def apply(
+        self, x: float, y: float
+    ) -> float:
         return self.operator(x, y)
 
-    def __call__(self, x, y):
+    def __call__(
+        self, x: float, y: float
+    ) -> float:
         return self.apply(x, y)
 
     def tree_flatten(self):
