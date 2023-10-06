@@ -62,7 +62,7 @@ def gp_scoring_function_brax_envs(
         return env_state, transitions
 
     random_key, subkey = jax.random.split(random_key)
-    unroll_fn = partial(_generate_unroll, random_key=random_key)
+    unroll_fn = partial(_generate_unroll, random_key=subkey)
     _, data = jax.vmap(unroll_fn)(init_states, genotypes)
 
     # create a mask to extract data properly
