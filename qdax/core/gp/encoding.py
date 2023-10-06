@@ -47,8 +47,6 @@ def compute_genome_to_step_fn(
         ) -> Tuple[EnvState, ProgramState, RNGKey, Transition]:
             program_inputs = env_state.obs
             next_program_state, actions = program(program_inputs, program_state)
-
-            state_desc = env_state.info["state_descriptor"]
             next_state = environment.step(env_state, actions)
 
             transition = QDTransition(
@@ -58,7 +56,7 @@ def compute_genome_to_step_fn(
                 dones=next_state.done,
                 actions=actions,
                 truncations=next_state.info["truncation"],
-                state_desc=state_desc,
+                state_desc=env_state.info["state_descriptor"],
                 next_state_desc=next_state.info["state_descriptor"],
             )
             return next_state, next_program_state, random_key, transition
