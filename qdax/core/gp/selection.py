@@ -4,38 +4,54 @@ import jax
 import jax.numpy as jnp
 from jax import vmap
 
-from qdax.types import RNGKey
+from qdax.types import RNGKey, Genotype
 
 
-def truncation_selection(
-    genomes: jnp.ndarray,
+def uniform_selection(
+    genomes: Genotype,
     fitness_values: jnp.ndarray,
     rnd_key: RNGKey,
     n_samples: int
-) -> jnp.ndarray:
+) -> Genotype:
+    mask = fitness_values != -jnp.inf
+    p = jnp.any(mask, axis=-1) / jnp.sum(jnp.any(mask, axis=-1))
+    return jax.tree_util.tree_map(
+        lambda x: jax.random.choice(
+            rnd_key, x, shape=(n_samples,), p=p, replace=False
+        ),
+        genomes,
+    )
+
+
+def truncation_selection(
+    genomes: Genotype,
+    fitness_values: jnp.ndarray,
+    rnd_key: RNGKey,
+    n_samples: int
+) -> Genotype:
     elites, _ = jnp.split(jnp.argsort(-fitness_values), [n_samples])
     return jnp.take(genomes, elites, axis=0)
 
 
 def fp_selection(
-    genomes: jnp.ndarray,
+    genomes: Genotype,
     fitness_values: jnp.ndarray,
     rnd_key: RNGKey,
     n_samples: int
-) -> jnp.ndarray:
+) -> Genotype:
     p = 1 - ((jnp.max(fitness_values) - fitness_values) / (jnp.max(fitness_values) - jnp.min(fitness_values)))
     p /= jnp.sum(p)
     return jax.random.choice(rnd_key, genomes, shape=[n_samples], p=p, replace=False)
 
 
 def tournament_selection(
-    genomes: jnp.ndarray,
+    genomes: Genotype,
     fitness_values: jnp.ndarray,
     rnd_key: RNGKey,
     n_samples: int,
     tour_size: int
-) -> jnp.ndarray:
-    def _tournament(sample_key: RNGKey, genomes: jnp.ndarray, fitnesses: jnp.ndarray, tour_size: int) -> jnp.ndarray:
+) -> Genotype:
+    def _tournament(sample_key: RNGKey, genomes: Genotype, fitnesses: jnp.ndarray, tour_size: int) -> Genotype:
         indexes = jax.random.choice(sample_key, jnp.arange(start=0, stop=len(genomes)), shape=[tour_size], replace=True)
         mask = jnp.zeros_like(fitnesses)
         mask = mask.at[indexes].set(1)
