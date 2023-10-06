@@ -116,6 +116,7 @@ def create(
     env_name: str,
     episode_length: int = 1000,
     action_repeat: int = 1,
+    legacy_spring : bool = True,
     auto_reset: bool = True,
     batch_size: Optional[int] = None,
     eval_metrics: bool = False,
@@ -129,13 +130,13 @@ def create(
     """
 
     if env_name in brax.envs._envs.keys():
-        env = brax.envs._envs[env_name](legacy_spring=True, **kwargs)
+        env = brax.envs._envs[env_name](legacy_spring=legacy_spring, **kwargs)
     elif env_name in _qdax_envs.keys():
         env = _qdax_envs[env_name](**kwargs)
     elif env_name in _qdax_custom_envs.keys():
         base_env_name = _qdax_custom_envs[env_name]["env"]
         if base_env_name in brax.envs._envs.keys():
-            env = brax.envs._envs[base_env_name](legacy_spring=True, **kwargs)
+            env = brax.envs._envs[base_env_name](legacy_spring=legacy_spring, **kwargs)
         elif base_env_name in _qdax_envs.keys():
             env = _qdax_envs[base_env_name](**kwargs)  # type: ignore
     else:
