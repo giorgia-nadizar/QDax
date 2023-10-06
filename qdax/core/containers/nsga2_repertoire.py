@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Tuple
+from functools import partial
+from typing import Any, Tuple, Callable
 
 import jax
 import jax.numpy as jnp
 
 from qdax.core.containers.ga_repertoire import GARepertoire
-from qdax.types import Fitness, Genotype
-from qdax.utils.pareto_front import compute_masked_pareto_front
+from qdax.types import Fitness, Genotype, Mask, RNGKey
+from qdax.utils.pareto_front import compute_masked_pareto_front, compute_pareto_front
 
 
 class NSGA2Repertoire(GARepertoire):
@@ -17,6 +18,8 @@ class NSGA2Repertoire(GARepertoire):
     and there fitness. Several functions are inherited from GARepertoire,
     including size, save, sample and init.
     """
+
+    pareto_front_mask: Mask = None
 
     @jax.jit
     def _compute_crowding_distances(
@@ -79,6 +82,31 @@ class NSGA2Repertoire(GARepertoire):
             )
 
             return crowding_distances
+
+    @classmethod
+    def init(  # type: ignore
+        cls,
+        genotypes: Genotype,
+        fitnesses: Fitness,
+        population_size: int,
+    ) -> GARepertoire:
+        """Initializes the repertoire.
+
+        Start with default values and adds a first batch of genotypes
+        to the repertoire.
+
+        Args:
+            genotypes: first batch of genotypes
+            fitnesses: corresponding fitnesses
+            population_size: size of the population we want to evolve
+
+        Returns:
+            An initial repertoire.
+        """
+
+        pareto_front_mask = compute_pareto_front(fitnesses)
+        repertoire = cls(genotypes=genotypes, fitnesses=fitnesses, pareto_front_mask=pareto_front_mask)
+        return repertoire  # type: ignore
 
     @jax.jit
     def add(
@@ -240,6 +268,21 @@ class NSGA2Repertoire(GARepertoire):
         new_candidates = jax.tree_util.tree_map(lambda x: x[indices], candidates)
         new_scores = candidate_fitnesses[indices]
 
-        new_repertoire = self.replace(genotypes=new_candidates, fitnesses=new_scores)
+        # save the current best front
+        pareto_front_mask = compute_pareto_front(new_scores)
+
+        new_repertoire = self.replace(
+            genotypes=new_candidates,
+            fitnesses=new_scores,
+            pareto_front_mask=pareto_front_mask
+        )
 
         return new_repertoire  # type: ignore
+
+    @classmethod
+    def load(cls, reconstruction_fn: Callable, path: str = "./") -> GARepertoire:
+        ga_repertoire = super().load(reconstruction_fn, path)
+        pareto_front_mask = compute_pareto_front(ga_repertoire.fitnesses)
+        return cls(
+            genotypes=ga_repertoire.genotypes, fitnesses=ga_repertoire.fitnesses, pareto_front_mask=pareto_front_mask
+        )
