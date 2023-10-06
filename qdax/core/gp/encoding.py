@@ -2,11 +2,13 @@ from functools import partial
 from typing import Callable, Tuple, Dict
 
 import jax.numpy as jnp
+from brax.envs import Env
 from jax import jit
 from jax.lax import fori_loop
 
 from qdax.core.gp.functions import function_switch, constants
-from qdax.types import ProgramState
+from qdax.core.neuroevolution.buffers.buffer import Transition, QDTransition
+from qdax.types import ProgramState, EnvState, RNGKey
 
 
 def compute_encoding_function(
@@ -21,6 +23,49 @@ def compute_encoding_function(
     if config["solver"] == "lgp":
         return partial(_genome_to_lgp_program, config=config, outputs_wrapper=outputs_wrapper)
     raise ValueError("Solver must be either cgp or lgp.")
+
+
+def compute_genome_to_step_fn(
+    environment: Env,
+    config: Dict,
+    outputs_wrapper: Callable[[jnp.ndarray], jnp.ndarray] = jnp.tanh
+) -> Callable[
+    [jnp.ndarray],
+    Callable[[EnvState, ProgramState, RNGKey], Tuple[EnvState, ProgramState, RNGKey, Transition]]
+]:
+    encoding_fn = compute_encoding_function(config, outputs_wrapper)
+
+    def _genome_to_program_step_fn(
+        genome: jnp.ndarray
+    ) -> Callable[[EnvState, ProgramState, RNGKey], Tuple[EnvState, ProgramState, RNGKey, Transition]]:
+        program = encoding_fn(genome)
+
+        def _program_step_fn(
+            env_state: EnvState,
+            program_state: ProgramState,
+            random_key: RNGKey
+        ) -> Tuple[EnvState, ProgramState, RNGKey, Transition]:
+            program_inputs = env_state.obs
+            next_program_state, actions = program(program_inputs, program_state)
+
+            state_desc = env_state.info["state_descriptor"]
+            next_state = environment.step(env_state, actions)
+
+            transition = QDTransition(
+                obs=env_state.obs,
+                next_obs=next_state.obs,
+                rewards=next_state.reward,
+                dones=next_state.done,
+                actions=actions,
+                truncations=next_state.info["truncation"],
+                state_desc=state_desc,
+                next_state_desc=next_state.info["state_descriptor"],
+            )
+            return next_state, next_program_state, random_key, transition
+
+        return _program_step_fn
+
+    return _genome_to_program_step_fn
 
 
 def _genome_to_cgp_program(

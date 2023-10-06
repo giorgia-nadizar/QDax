@@ -6,7 +6,82 @@ import jax.numpy as jnp
 from brax.envs import Env, State as EnvState
 from jax import jit, lax, vmap
 
-from qdax.types import EnvState, RNGKey, ProgramState, Program
+from qdax.core.neuroevolution.buffers.buffer import Transition, QDTransition
+from qdax.types import (
+    Descriptor,
+    EnvState,
+    ExtraScores,
+    Fitness,
+    Genotype,
+    RNGKey,
+    Program,
+    ProgramState
+)
+
+
+@partial(
+    jax.jit,
+    static_argnames=(
+        "episode_length",
+        "encoding_fn",
+        "behavior_descriptor_extractor",
+    ),
+)
+def gp_scoring_function_brax_envs(
+    genotypes: Genotype,
+    random_key: RNGKey,
+    init_states: Tuple[EnvState, ProgramState],
+    episode_length: int,
+    encoding_fn: Callable[
+        [jnp.ndarray],
+        Callable[[EnvState, ProgramState, RNGKey], Tuple[EnvState, ProgramState, RNGKey, Transition]]
+    ],
+    behavior_descriptor_extractor: Callable[[QDTransition, jnp.ndarray], Descriptor],
+) -> Tuple[Fitness, Descriptor, ExtraScores, RNGKey]:
+    def _generate_unroll(
+        init_state: Tuple[EnvState, ProgramState],
+        genotype: Genotype,
+        random_key: RNGKey
+    ) -> Tuple[EnvState, QDTransition]:
+        program_step_fn = encoding_fn(genotype)
+        init_env_state, init_program_state = init_state
+
+        def _scan_play_step_fn(
+            carry: Tuple[EnvState, ProgramState, RNGKey], unused_arg: Any
+        ) -> Tuple[Tuple[EnvState, ProgramState, RNGKey], Transition]:
+            env_s, program_s, rnd_key, transition = program_step_fn(*carry)
+            return (env_s, program_s, rnd_key), transition
+
+        (env_state, program_state, _), transitions = jax.lax.scan(
+            f=_scan_play_step_fn,
+            init=(init_env_state, init_program_state, random_key),
+            xs=(),
+            length=episode_length
+        )
+
+        return env_state, transitions
+
+    random_key, subkey = jax.random.split(random_key)
+    unroll_fn = partial(_generate_unroll, random_key=random_key)
+    _, data = jax.vmap(unroll_fn)(init_states, genotypes)
+
+    # create a mask to extract data properly
+    is_done = jnp.clip(jnp.cumsum(data.dones, axis=1), 0, 1)
+    mask = jnp.roll(is_done, 1, axis=1)
+    mask = mask.at[:, 0].set(0)
+
+    # scores
+    fitnesses = jnp.sum(data.rewards * (1.0 - mask), axis=1)
+    descriptors = behavior_descriptor_extractor(data, mask)
+
+    return (
+        fitnesses,
+        descriptors,
+        {
+            "transitions": data,
+        },
+        random_key,
+    )
 
 
 def evaluate_program(
