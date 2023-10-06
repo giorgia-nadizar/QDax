@@ -5,7 +5,7 @@ from jax import jit, vmap
 import jax.numpy as jnp
 from jax import random
 
-from qdax.types import RNGKey
+from qdax.types import RNGKey, Genotype
 
 
 @jit
@@ -122,6 +122,21 @@ def generate_population(
                                       genome_transformation_function=genome_transformation_function)
     vmap_generate_genome = vmap(partial_generate_genome)
     return vmap_generate_genome(rnd_key=sub_keys)
+
+
+def compute_mutation_fn(
+    genome_mask: jnp.ndarray,
+    mutation_mask: jnp.ndarray
+) -> Callable[[Genotype, RNGKey], Tuple[Genotype, RNGKey]]:
+    def _mutation_fn(genomes, rand_key):
+        rand_key, *mutate_keys = random.split(rand_key, len(genomes))
+        mutated_genomes = vmap(
+            partial(mutate_genome, genome_mask=genome_mask, mutation_mask=mutation_mask),
+            in_axes=(0, 0)
+        )(genomes, jnp.array(mutate_keys))
+        return mutated_genomes, rand_key
+
+    return _mutation_fn
 
 
 def mutate_genome(
