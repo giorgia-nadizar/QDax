@@ -1,6 +1,6 @@
 """Defines some types used in QDax"""
 
-from typing import Dict, Generic, TypeVar, Union
+from typing import Dict, Generic, TypeVar, Union, Tuple, Callable
 
 import brax.envs
 import jax
@@ -30,6 +30,7 @@ Gradient: TypeAlias = jnp.ndarray
 
 # CGP/LGP types
 ProgramState: TypeAlias = jnp.ndarray
+Program: TypeAlias = Callable[[Observation, ProgramState], Tuple[ProgramState, Action]]
 
 Skill: TypeAlias = jnp.ndarray
 

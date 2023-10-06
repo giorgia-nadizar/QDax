@@ -6,11 +6,11 @@ import jax.numpy as jnp
 from brax.envs import Env, State as EnvState
 from jax import jit, lax, vmap
 
-from qdax.types import EnvState, RNGKey, ProgramState
+from qdax.types import EnvState, RNGKey, ProgramState, Program
 
 
 def evaluate_program(
-    program: Callable[[jnp.ndarray, ProgramState], Tuple[ProgramState, jnp.ndarray]],
+    program: Program,
     initial_program_state: ProgramState,
     rnd_key: RNGKey,
     env: Env,
@@ -20,9 +20,9 @@ def evaluate_program(
     initial_rewards_state = (0.0, 0.0, 0.0)
 
     def _rollout_loop(
-        carry: Tuple[EnvState, jnp.ndarray, Tuple[float, float, float], float, int],
+        carry: Tuple[EnvState, ProgramState, Tuple[float, float, float], float, int],
         unused_arg: Any
-    ) -> Tuple[Tuple[EnvState, jnp.ndarray, Tuple[float, float, float], float, int], Any]:
+    ) -> Tuple[Tuple[EnvState, ProgramState, Tuple[float, float, float], float, int], Any]:
         env_state, program_state, rewards_state, cum_rew, active_episode = carry
         inputs = env_state.obs
         new_program_state, actions = program(inputs, program_state)
@@ -52,13 +52,10 @@ def evaluate_genome(
     rnd_key: RNGKey,
     initial_program_state: ProgramState,
     env: Env,
-    encoding_function: Callable[
-        [jnp.ndarray],
-        Callable[[jnp.ndarray, ProgramState], Tuple[ProgramState, jnp.ndarray]]
-    ],
+    encoding_function: Callable[[jnp.ndarray], Program],
     episode_length: int = 1000,
     inner_evaluator: Callable[
-        [Callable[[jnp.ndarray, ProgramState], Tuple[ProgramState, jnp.ndarray]], ProgramState, RNGKey, Env, int],
+        [Program, ProgramState, RNGKey, Env, int],
         Tuple[float, Tuple[float, float, float]]
     ] = evaluate_program
 ) -> Tuple[float, Tuple[float, float, float]]:
@@ -76,10 +73,7 @@ def evaluate_genome_n_times(
     rnd_key: RNGKey,
     initial_program_state: ProgramState,
     env: Env, n_times: int,
-    encoding_function: Callable[
-        [jnp.ndarray],
-        Callable[[jnp.ndarray, ProgramState], Tuple[ProgramState, jnp.ndarray]]
-    ],
+    encoding_function: Callable[[jnp.ndarray], Program],
     episode_length: int = 1000,
     inner_evaluator: Callable = evaluate_program
 ) -> Tuple[jnp.ndarray, Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]]:
