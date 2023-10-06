@@ -24,7 +24,10 @@ def compute_pareto_dominance(
         Return booleans when the vector is dominated by the batch.
     """
     diff = jnp.subtract(batch_of_criteria, criteria_point)
-    return jnp.any(jnp.all(diff > 0, axis=-1))
+    potential_dominators = ~jnp.any(diff < 0, axis=-1)
+    overall_inc = jnp.sum(diff, axis=-1)
+    dominators = potential_dominators * overall_inc
+    return jnp.any(dominators > 0)
 
 
 def compute_pareto_front(batch_of_criteria: jnp.ndarray) -> jnp.ndarray:
