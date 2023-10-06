@@ -70,7 +70,7 @@ class GARepertoire(Repertoire):
         flat_genotypes = jnp.load(path + "genotypes.npy")
         genotypes = jax.vmap(reconstruction_fn)(flat_genotypes)
 
-        fitnesses = jnp.load(path + "fitnesses.npy")
+        fitnesses = jnp.load(path + "scores.npy")
 
         return cls(
             genotypes=genotypes,
