@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from functools import partial
 from typing import Any, Tuple, Callable
 
 import jax
 import jax.numpy as jnp
 
 from qdax.core.containers.ga_repertoire import GARepertoire
-from qdax.types import Fitness, Genotype, Mask, RNGKey
+from qdax.types import Fitness, Genotype, Mask
 from qdax.utils.pareto_front import compute_masked_pareto_front, compute_pareto_front
 
 

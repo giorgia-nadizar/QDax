@@ -12,6 +12,7 @@ from jax import numpy as jnp
 from qdax.core.containers.ga_repertoire import GARepertoire
 from qdax.core.containers.mapelites_repertoire import MapElitesRepertoire
 from qdax.core.containers.mome_repertoire import MOMERepertoire
+from qdax.core.containers.nsga2_repertoire import NSGA2Repertoire
 from qdax.types import Metrics
 from qdax.utils.pareto_front import compute_hypervolume
 
@@ -68,6 +69,32 @@ def default_ga_metrics(
 
     return {
         "max_fitness": max_fitness,
+    }
+
+
+def default_nsga2_metrics(
+    repertoire: NSGA2Repertoire,
+) -> Metrics:
+    """Compute the usual NSGA-II metrics that one can retrieve
+    from a NSGA-II repertoire.
+
+    Args:
+        repertoire: a NSGA-II repertoire
+
+    Returns:
+        a dictionary containing the max fitness of the
+            repertoire and the size of the pareto front.
+    """
+
+    # get metrics
+    max_fitness = jnp.max(repertoire.fitnesses, axis=0)
+    pareto_front_size = jnp.count_nonzero(repertoire.pareto_front_mask)
+    pareto_fitnesses = repertoire.fitnesses * jnp.transpose(jnp.array([repertoire.pareto_front_mask, ] * 2))
+
+    return {
+        "max_fitness": max_fitness,
+        "pareto_front_size": pareto_front_size,
+        "pareto_fitnesses" : pareto_fitnesses
     }
 
 
