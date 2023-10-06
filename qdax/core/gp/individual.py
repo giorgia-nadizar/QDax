@@ -129,7 +129,7 @@ def compute_mutation_fn(
     mutation_mask: jnp.ndarray
 ) -> Callable[[Genotype, RNGKey], Tuple[Genotype, RNGKey]]:
     def _mutation_fn(genomes, rand_key):
-        rand_key, *mutate_keys = random.split(rand_key, len(genomes))
+        rand_key, *mutate_keys = random.split(rand_key, len(genomes) + 1)
         mutated_genomes = vmap(
             partial(mutate_genome, genome_mask=genome_mask, mutation_mask=mutation_mask),
             in_axes=(0, 0)
