@@ -1,8 +1,8 @@
 from functools import partial
-from typing import Dict, Tuple, Any, Callable
+from typing import Dict, Tuple, Callable
 
 from jax import numpy as jnp, vmap
-from jax.lax import scan, fori_loop
+from jax.lax import fori_loop
 
 from qdax.core.gp.functions import function_arities, available_functions, arithmetic_functions, logical_functions, \
     trigonometric_functions
@@ -85,11 +85,11 @@ def compute_lgp_coding_lines(
     lhs_genes = lhs_genes + n_in
     registers_mask = jnp.where(jnp.arange(n_registers) >= (n_registers - n_out), 1, 0)
     active = jnp.zeros(n_rows)
-    (active, _, _, _, _, _, _), _ = scan(
-        _set_used_lines,
-        init=(active, registers_mask, lhs_genes, x_genes, y_genes, f_genes, n_rows - 1),
-        xs=None,
-        length=n_rows
+    active, _, _, _, _, _ = fori_loop(
+        lower=0,
+        upper=n_rows,
+        body_fun=_set_used_lines,
+        init_val=(active, registers_mask, lhs_genes, x_genes, y_genes, f_genes)
     )
     return active
 
@@ -212,18 +212,19 @@ def _compute_active_graph(
 
 
 def _set_used_lines(
-    carry: Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, int],
-    unused_args: Any
-) -> Tuple[Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, int], Any]:
-    active, regs_mask, lhs_genes, x_genes, y_genes, f_genes, row_id = carry
-    line_use = regs_mask.at[lhs_genes.at[row_id].get()].get()
-    active = active.at[row_id].set(line_use)
+    opposite_idx: int,
+    carry: Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]
+) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+    active, regs_mask, lhs_genes, x_genes, y_genes, f_genes = carry
+    row_idx = len(active) - opposite_idx - 1
+    line_use = regs_mask.at[lhs_genes.at[row_idx].get()].get()
+    active = active.at[row_idx].set(line_use)
 
-    x_reg = x_genes.at[row_id].get()
-    y_reg = y_genes.at[row_id].get()
-    arity = function_arities.at[f_genes[row_id]].get()
-    regs_mask = regs_mask.at[row_id].set(0)
+    x_reg = x_genes.at[row_idx].get()
+    y_reg = y_genes.at[row_idx].get()
+    arity = function_arities.at[f_genes[row_idx]].get()
+    regs_mask = regs_mask.at[row_idx].set(0)
     regs_mask = regs_mask.at[x_reg].set(jnp.ceil((line_use + regs_mask.at[x_reg].get()) / 2))
     regs_mask = regs_mask.at[y_reg].set(jnp.ceil((line_use * (arity == 2) + regs_mask.at[y_reg].get()) / 2))
 
-    return (active, regs_mask, lhs_genes, x_genes, y_genes, f_genes, row_id - 1), None
+    return active, regs_mask, lhs_genes, x_genes, y_genes, f_genes
