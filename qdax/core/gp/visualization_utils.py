@@ -118,8 +118,6 @@ def _lgp_program_from_genome(genome: jnp.ndarray, config: Dict, active_only: boo
     # execution
     for row_idx in range(config["n_rows"]):
         if active[row_idx]:
-            print(row_idx)
-            print(f_genes[row_idx])
             function = functions[f_genes[row_idx]]
             text_function += f"  r[{lhs_genes[row_idx]}] = {function.symbol}(r[{x_genes[row_idx]}]"
             if function.arity > 1:
