@@ -25,6 +25,7 @@ from qdax.types import (
         "episode_length",
         "encoding_fn",
         "behavior_descriptor_extractor",
+        "graph_descriptor_extractor"
     ),
 )
 def gp_scoring_function_brax_envs(
@@ -36,7 +37,14 @@ def gp_scoring_function_brax_envs(
         [jnp.ndarray],
         Callable[[EnvState, ProgramState, RNGKey], Tuple[EnvState, ProgramState, RNGKey, Transition]]
     ],
-    behavior_descriptor_extractor: Callable[[QDTransition, jnp.ndarray], Descriptor],
+    behavior_descriptor_extractor: Callable[
+        [QDTransition, jnp.ndarray],
+        Descriptor
+    ] = vmap(lambda x, y: jnp.empty((0,))),
+    graph_descriptor_extractor: Callable[
+        [Genotype],
+        Descriptor
+    ] = vmap(lambda x: jnp.empty((0,)))
 ) -> Tuple[Fitness, Descriptor, ExtraScores, RNGKey]:
     def _generate_unroll(
         init_state: Tuple[EnvState, ProgramState],
@@ -72,7 +80,9 @@ def gp_scoring_function_brax_envs(
 
     # scores
     fitnesses = jnp.sum(data.rewards * (1.0 - mask), axis=1)
-    descriptors = behavior_descriptor_extractor(data, mask)
+    env_descriptors = behavior_descriptor_extractor(data, mask)
+    graph_descriptors = graph_descriptor_extractor(genotypes)
+    descriptors = jnp.concatenate([env_descriptors, graph_descriptors], axis=1)
 
     return (
         fitnesses,
