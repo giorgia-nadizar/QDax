@@ -52,7 +52,7 @@ def _replace_cgp_expression(
 
 
 def _lgp_expression_from_genome(genome: jnp.ndarray, config: Dict) -> str:
-    lhs_genes, x_genes, y_genes, f_genes, weights = jnp.split(genome, 5)
+    lhs_genes, x_genes, y_genes, f_genes = jnp.split(genome, 4)
     lhs_genes += config["n_in"]
     target = ""
     for output_id in range(config["n_out"]):
@@ -108,7 +108,7 @@ def _cgp_program_from_genome(genome: jnp.ndarray, config: Dict, active_only: boo
 
 
 def _lgp_program_from_genome(genome: jnp.ndarray, config: Dict, active_only: bool = True) -> str:
-    lhs_genes, x_genes, y_genes, f_genes, weights = jnp.split(genome, 5)
+    lhs_genes, x_genes, y_genes, f_genes = jnp.split(genome, 4)
     lhs_genes += config["n_in"]
     functions = list(available_functions.values())
     text_function = f"def program(inputs, r):\n" \
@@ -118,6 +118,8 @@ def _lgp_program_from_genome(genome: jnp.ndarray, config: Dict, active_only: boo
     # execution
     for row_idx in range(config["n_rows"]):
         if active[row_idx]:
+            print(row_idx)
+            print(f_genes[row_idx])
             function = functions[f_genes[row_idx]]
             text_function += f"  r[{lhs_genes[row_idx]}] = {function.symbol}(r[{x_genes[row_idx]}]"
             if function.arity > 1:
