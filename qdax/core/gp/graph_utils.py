@@ -66,11 +66,12 @@ def compute_cgp_active_graph(
     x_genes, y_genes, f_genes, out_genes = jnp.split(genome, [n_nodes, 2 * n_nodes, 3 * n_nodes])
     active = jnp.zeros(n_in + n_nodes)
     active = active.at[out_genes].set(1)
-    (active, _, _, _, _, _), _ = scan(
-        _compute_active_graph,
-        init=(active, x_genes, y_genes, f_genes, n_in, n_in + n_nodes - 1),
-        xs=None,
-        length=n_nodes
+
+    active, _, _, _, _ = fori_loop(
+        lower=0,
+        upper=n_nodes,
+        body_fun=_compute_active_graph,
+        init_val=(active, x_genes, y_genes, f_genes, n_in),
     )
     return active
 
@@ -197,16 +198,17 @@ def _compute_complexity(
 
 
 def _compute_active_graph(
-    carry: Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, int, int],
-    unused_args: Any
-) -> Tuple[Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, int, int], Any]:
-    active, x_genes, y_genes, f_genes, n_in, idx = carry
+    opposite_idx: int,
+    carry: Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, int],
+) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, int]:
+    active, x_genes, y_genes, f_genes, n_in = carry
+    idx = len(active) - opposite_idx - 1
     x_idx = x_genes.at[idx - n_in].get().astype(int)
     y_idx = y_genes.at[idx - n_in].get().astype(int)
     arity = function_arities.at[f_genes[idx - n_in]].get()
     active = active.at[x_idx].set(jnp.ceil((active.at[x_idx].get() + active.at[idx].get()) / 2))
     active = active.at[y_idx].set(jnp.ceil((active.at[y_idx].get() + (active.at[idx].get() * (arity == 2))) / 2))
-    return (active, x_genes, y_genes, f_genes, n_in, idx - 1), None
+    return active, x_genes, y_genes, f_genes, n_in
 
 
 def _set_used_lines(
