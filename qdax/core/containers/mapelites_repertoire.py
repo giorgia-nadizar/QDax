@@ -152,6 +152,7 @@ class MapElitesRepertoire(flax.struct.PyTreeNode):
     fitnesses: Fitness
     descriptors: Descriptor
     centroids: Centroid
+    occupation: jnp.ndarray
 
     def save(self, path: str = "./") -> None:
         """Saves the repertoire on disk in the form of .npy files.
@@ -176,6 +177,7 @@ class MapElitesRepertoire(flax.struct.PyTreeNode):
         jnp.save(path + "fitnesses.npy", self.fitnesses)
         jnp.save(path + "descriptors.npy", self.descriptors)
         jnp.save(path + "centroids.npy", self.centroids)
+        jnp.save(path + "occupation.npy", self.occupation)
 
     @classmethod
     def load(cls, reconstruction_fn: Callable, path: str = "./") -> MapElitesRepertoire:
@@ -196,12 +198,14 @@ class MapElitesRepertoire(flax.struct.PyTreeNode):
         fitnesses = jnp.load(path + "fitnesses.npy")
         descriptors = jnp.load(path + "descriptors.npy")
         centroids = jnp.load(path + "centroids.npy")
+        occupation = jnp.load(path + "occupation.npy")
 
         return cls(
             genotypes=genotypes,
             fitnesses=fitnesses,
             descriptors=descriptors,
             centroids=centroids,
+            occupation=occupation
         )
 
     @partial(jax.jit, static_argnames=("num_samples",))
@@ -254,11 +258,14 @@ class MapElitesRepertoire(flax.struct.PyTreeNode):
             The updated MAP-Elites repertoire.
         """
 
+        num_centroids = self.centroids.shape[0]
+
         batch_of_indices = get_cells_indices(batch_of_descriptors, self.centroids)
+        batch_of_occupation = jnp.bincount(batch_of_indices, length=num_centroids)
+        new_occupation = self.occupation + batch_of_occupation
+
         batch_of_indices = jnp.expand_dims(batch_of_indices, axis=-1)
         batch_of_fitnesses = jnp.expand_dims(batch_of_fitnesses, axis=-1)
-
-        num_centroids = self.centroids.shape[0]
 
         # get fitness segment max
         best_fitnesses = jax.ops.segment_max(
@@ -308,6 +315,7 @@ class MapElitesRepertoire(flax.struct.PyTreeNode):
             fitnesses=new_fitnesses,
             descriptors=new_descriptors,
             centroids=self.centroids,
+            occupation=new_occupation
         )
 
     @classmethod
@@ -394,9 +402,13 @@ class MapElitesRepertoire(flax.struct.PyTreeNode):
         # default descriptor is all zeros
         default_descriptors = jnp.zeros_like(centroids)
 
+        # default occupation is all zeros
+        default_occupation = jnp.zeros(shape=num_centroids)
+
         return cls(
             genotypes=default_genotypes,
             fitnesses=default_fitnesses,
             descriptors=default_descriptors,
             centroids=centroids,
+            occupation=default_occupation
         )
