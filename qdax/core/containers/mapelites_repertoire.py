@@ -18,6 +18,35 @@ from sklearn.cluster import KMeans
 from qdax.types import Centroid, Descriptor, ExtraScores, Fitness, Genotype, RNGKey
 
 
+def compute_cvt_centroids_from_samples(
+    descriptors_samples: Descriptor,
+    num_centroids: int,
+    random_key: RNGKey
+) -> Tuple[jnp.ndarray, RNGKey]:
+    """Compute centroids for CVT tesselation given exhaustive descriptors samples.
+
+    Args:
+        descriptors_samples: samples of descriptors realizations
+        num_centroids: number of centroids
+        random_key: a jax PRNG random key
+
+    Returns:
+        the centroids with shape (num_centroids, num_descriptors)
+        random_key: an updated jax PRNG random key
+    """
+    # compute k means
+    random_key, subkey = jax.random.split(random_key)
+    k_means = KMeans(
+        init="k-means++",
+        n_clusters=num_centroids,
+        n_init=1,
+        random_state=RandomState(subkey),
+    )
+    k_means.fit(descriptors_samples)
+    centroids = k_means.cluster_centers_
+    return jnp.asarray(centroids), random_key
+
+
 def compute_cvt_centroids(
     num_descriptors: int,
     num_init_cvt_samples: int,
