@@ -237,6 +237,7 @@ class MapElitesRepertoire(flax.struct.PyTreeNode):
             occupation=occupation
         )
 
+    # TODO sampling should be done by a sampler passed as a callable
     @partial(jax.jit, static_argnames=("num_samples",))
     def sample(self, random_key: RNGKey, num_samples: int) -> Tuple[Genotype, RNGKey]:
         """Sample elements in the repertoire.
@@ -252,6 +253,32 @@ class MapElitesRepertoire(flax.struct.PyTreeNode):
 
         repertoire_empty = self.fitnesses == -jnp.inf
         p = (1.0 - repertoire_empty) / jnp.sum(1.0 - repertoire_empty)
+
+        random_key, subkey = jax.random.split(random_key)
+        samples = jax.tree_util.tree_map(
+            lambda x: jax.random.choice(subkey, x, shape=(num_samples,), p=p),
+            self.genotypes,
+        )
+
+        return samples, random_key
+
+    @partial(jax.jit, static_argnames=("num_samples",))
+    def fp_sample(self, random_key: RNGKey, num_samples: int) -> Tuple[Genotype, RNGKey]:
+        """Sample elements in the repertoire proportionally to their fitness values.
+
+        Args:
+            random_key: a jax PRNG random key
+            num_samples: the number of elements to be sampled
+
+        Returns:
+            samples: a batch of genotypes sampled in the repertoire
+            random_key: an updated jax PRNG random key
+        """
+        repertoire_empty = self.fitnesses == -jnp.inf
+        min_fit = jnp.min(jnp.where(repertoire_empty, self.fitnesses, jnp.inf)) - 0.1
+
+        p = jnp.where(repertoire_empty, 0, self.fitnesses - min_fit)
+        p /= jnp.sum(p)
 
         random_key, subkey = jax.random.split(random_key)
         samples = jax.tree_util.tree_map(
