@@ -94,7 +94,7 @@ def default_nsga2_metrics(
     return {
         "max_fitness": max_fitness,
         "pareto_front_size": pareto_front_size,
-        "pareto_fitnesses" : pareto_fitnesses
+        "pareto_fitnesses": pareto_fitnesses
     }
 
 
@@ -123,6 +123,16 @@ def default_qd_metrics(repertoire: MapElitesRepertoire, qd_offset: float) -> Met
     max_fitness = jnp.max(repertoire.fitnesses)
 
     return {"qd_score": qd_score, "max_fitness": max_fitness, "coverage": coverage}
+
+
+def extra_qd_metrics(repertoire: MapElitesRepertoire, qd_offset: float) -> Metrics:
+    # get metrics
+    repertoire_empty = repertoire.fitnesses == -jnp.inf
+    qd_score = jnp.sum(repertoire.fitnesses, where=~repertoire_empty)
+    qd_score += qd_offset * jnp.sum(1.0 - repertoire_empty)
+    coverage = 100 * jnp.mean(1.0 - repertoire_empty)
+
+    return {"extra_qd_score": qd_score, "extra_coverage": coverage}
 
 
 def default_moqd_metrics(
