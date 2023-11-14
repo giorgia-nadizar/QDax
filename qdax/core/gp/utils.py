@@ -34,4 +34,7 @@ def update_config(config: Dict, env: Env = None) -> Dict:
         config["program_state_size"] = config["n_registers"]
         config["genome_size"] = 5 * config["n_rows"]
 
+    if config.get("symmetry", False):
+        config["program_state_size"] = config["program_state_size"] * 2
+
     return config
