@@ -7,7 +7,8 @@ from jax import jit
 from jax.lax import fori_loop
 
 from qdax.core.gp.functions import function_switch, constants
-from qdax.core.neuroevolution.buffers.buffer import Transition, QDTransition
+from qdax.core.neuroevolution.buffers.buffer import Transition, QDTransitionDetailed
+from qdax.environments.symmetric_envs import get_symmetric_input_indexes, get_action_joiner_func
 from qdax.types import ProgramState, EnvState, RNGKey
 
 
@@ -23,6 +24,62 @@ def compute_encoding_function(
     if config["solver"] == "lgp":
         return partial(_genome_to_lgp_program, config=config, outputs_wrapper=outputs_wrapper)
     raise ValueError("Solver must be either cgp or lgp.")
+
+
+def compute_genome_to_symmetric_step_fn(
+    environment: Env,
+    config: Dict,
+    outputs_wrapper: Callable[[jnp.ndarray], jnp.ndarray] = jnp.tanh
+) -> Callable[
+    [jnp.ndarray],
+    Callable[[EnvState, ProgramState, RNGKey], Tuple[EnvState, ProgramState, RNGKey, Transition]]
+]:
+    encoding_fn = compute_encoding_function(config, outputs_wrapper)
+    symmetric_input_indexes = get_symmetric_input_indexes(config["env_name"])
+    action_joiner_function = get_action_joiner_func(config["env_name"])
+
+    def _genome_to_program_step_fn(
+        genome: jnp.ndarray
+    ) -> Callable[[EnvState, ProgramState, RNGKey], Tuple[EnvState, ProgramState, RNGKey, Transition]]:
+        program = encoding_fn(genome)
+
+        def _program_step_fn(
+            env_state: EnvState,
+            program_state: ProgramState,
+            random_key: RNGKey
+        ) -> Tuple[EnvState, ProgramState, RNGKey, Transition]:
+            observation = env_state.obs
+            symmetric_observation = observation.take(symmetric_input_indexes)
+
+            program_state_1, program_state_2 = jnp.split(program_state, 2)
+
+            next_program_state_1, actions1 = program(observation, program_state_1)
+            next_program_state_2, actions2 = program(symmetric_observation, program_state_2)
+            next_program_state = jnp.concatenate([next_program_state_1, next_program_state_2])
+
+            actions = action_joiner_function(actions1, actions2)
+
+            next_state = environment.step(env_state, actions)
+            health_reward = next_state.metrics.get("reward_healthy", next_state.metrics.get("reward_survive", 0))
+            run_reward = next_state.metrics.get("reward_forward", next_state.metrics.get("reward_run", 0))
+
+            transition = QDTransitionDetailed(
+                obs=env_state.obs,
+                next_obs=next_state.obs,
+                rewards=next_state.reward,
+                health_rewards=health_reward,
+                run_rewards=run_reward,
+                dones=next_state.done,
+                actions=actions,
+                truncations=next_state.info["truncation"],
+                state_desc=env_state.info["state_descriptor"],
+                next_state_desc=next_state.info["state_descriptor"],
+            )
+            return next_state, next_program_state, random_key, transition
+
+        return _program_step_fn
+
+    return _genome_to_program_step_fn
 
 
 def compute_genome_to_step_fn(
@@ -48,11 +105,16 @@ def compute_genome_to_step_fn(
             program_inputs = env_state.obs
             next_program_state, actions = program(program_inputs, program_state)
             next_state = environment.step(env_state, actions)
+            # TODO merge in a single field of the transition
+            health_reward = next_state.metrics.get("reward_healthy", next_state.metrics.get("reward_survive", 0))
+            run_reward = next_state.metrics.get("reward_forward", next_state.metrics.get("reward_run", 0))
 
-            transition = QDTransition(
+            transition = QDTransitionDetailed(
                 obs=env_state.obs,
                 next_obs=next_state.obs,
                 rewards=next_state.reward,
+                health_rewards=health_reward,
+                run_rewards=run_reward,
                 dones=next_state.done,
                 actions=actions,
                 truncations=next_state.info["truncation"],
