@@ -255,3 +255,55 @@ class KheperaxTask(brax.envs.env.Env):
         image = jax.vmap(jax.vmap(_map_colors))(image)
 
         return image
+
+
+class KheperaxTargetedTask(KheperaxTask):
+    target_point: jnp.ndarray
+
+    def __init__(self, kheperax_config: KheperaxConfig, target_point: jnp.ndarray, **kwargs):
+        self.target_point = target_point
+        super().__init__(kheperax_config=kheperax_config, **kwargs)
+
+    @classmethod
+    def create_environment(cls, kheperax_config: KheperaxConfig, target_point: jnp.ndarray = jnp.asarray([0.125, 0.9])):
+        env = cls(kheperax_config, target_point)
+        env = brax.envs.wrappers.EpisodeWrapper(env, kheperax_config.episode_length, action_repeat=1)
+        env = TypeFixerWrapper(env)
+        return env
+
+    def step(self, state: KheperaxState, action: jnp.ndarray) -> KheperaxState:
+        previous_position = self.get_xy_pos(state.robot)
+
+        random_key = state.random_key
+
+        # actions should be between -1 and 1
+        action = jnp.clip(action, -1., 1.)
+
+        random_key, subkey = jax.random.split(random_key)
+        wheel_velocities = self._get_wheel_velocities(action, subkey)
+
+        new_robot, bumper_measures = state.robot.move(wheel_velocities[0], wheel_velocities[1], state.maze)
+
+        random_key, subkey = jax.random.split(random_key)
+        obs = self._get_obs(new_robot, state.maze, bumper_measures=bumper_measures, random_key=subkey)
+        new_position = state.info["state_descriptor"] = self.get_xy_pos(new_robot)
+
+        # reward describes negative distance from target
+        previous_distance = jnp.linalg.norm(self.target_point - previous_position)
+        current_distance = jnp.linalg.norm(self.target_point - new_position)
+        reward = previous_distance - current_distance
+
+        # only stop at the end of the episode
+        done = False
+
+        random_key, subkey = jax.random.split(random_key)
+        new_random_key = subkey
+
+        return state.replace(
+            maze=state.maze,
+            robot=new_robot,
+            obs=obs,
+            reward=reward,
+            done=done,
+            random_key=new_random_key,
+        )
