@@ -35,6 +35,7 @@ reward_offset = {
     "halfcheetah_uni": 9.231,
     "hopper_uni": 0.9,
     "walker2d_uni": 1.413,
+    "kheperax": 0.5
 }
 
 behavior_descriptor_extractor = {
@@ -50,6 +51,7 @@ behavior_descriptor_extractor = {
     "halfcheetah_uni": get_feet_contact_proportion,
     "hopper_uni": get_feet_contact_proportion,
     "walker2d_uni": get_feet_contact_proportion,
+    "kheperax": get_final_xy_position,
 }
 
 _qdax_envs = {
@@ -116,7 +118,7 @@ def create(
     env_name: str,
     episode_length: int = 1000,
     action_repeat: int = 1,
-    legacy_spring : bool = True,
+    legacy_spring: bool = True,
     auto_reset: bool = True,
     batch_size: Optional[int] = None,
     eval_metrics: bool = False,
