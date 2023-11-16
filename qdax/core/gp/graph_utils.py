@@ -44,7 +44,7 @@ def compute_cgp_descriptors(genome: jnp.ndarray, config: Dict, descriptors_index
     active_fraction = jnp.sum(active[config["n_in"]:]) / config["n_nodes"]
     inputs_fraction = jnp.sum(active[:config["n_in"]]) / config["n_in"]
     functions_count = _cgp_count_functions(active, genome, config)
-    functions_descriptor = _functions_descriptor(functions_count) / config["n_nodes"]
+    functions_descriptor = _functions_descriptor(functions_count, config["n_nodes"])
     descriptors = jnp.concatenate([jnp.asarray([active_fraction, inputs_fraction]), functions_descriptor])
     return jnp.take(descriptors, descriptors_indexes)
 
@@ -54,7 +54,7 @@ def compute_lgp_descriptors(genome: jnp.ndarray, config: Dict, descriptors_index
     active_fraction = jnp.sum(active) / len(active)
     inputs_fraction = jnp.sum(_lgp_inputs_usage(active, genome, config)) / config["n_in"]
     functions_count = _lgp_count_functions(active, genome)
-    functions_descriptor = _functions_descriptor(functions_count) / len(active)
+    functions_descriptor = _functions_descriptor(functions_count, len(active))
     descriptors = jnp.concatenate([jnp.asarray([active_fraction, inputs_fraction]), functions_descriptor])
     return jnp.take(descriptors, descriptors_indexes)
 
@@ -138,18 +138,19 @@ def _lgp_count_functions(active: jnp.ndarray, genome: jnp.ndarray) -> jnp.ndarra
     return functions_count
 
 
-def _functions_descriptor(functions_count: jnp.ndarray) -> jnp.ndarray:
+def _functions_descriptor(functions_count: jnp.ndarray, max_n_functions: int) -> jnp.ndarray:
     one_arity_total = jnp.sum(jnp.where(function_arities == 1, functions_count, 0))
     two_arity_total = jnp.sum(jnp.where(function_arities == 2, functions_count, 0))
 
     arithmetic_total = jnp.sum(jnp.take(functions_count, arithmetic_functions))
     logical_total = jnp.sum(jnp.take(functions_count, logical_functions))
     trigonometric_total = jnp.sum(jnp.take(functions_count, trigonometric_functions))
+    function_totals = jnp.asarray(
+        [one_arity_total, two_arity_total, arithmetic_total, logical_total, trigonometric_total])
 
     arity_fraction = one_arity_total / (one_arity_total + two_arity_total)
-    return jnp.asarray(
-        [one_arity_total, two_arity_total, arithmetic_total, logical_total, trigonometric_total, arity_fraction]
-    )
+
+    return jnp.concatenate([function_totals / max_n_functions, jnp.asarray([arity_fraction])])
 
 
 def _lgp_inputs_usage(
