@@ -289,31 +289,13 @@ class MapElitesRepertoire(flax.struct.PyTreeNode):
         return samples, random_key
 
     @jax.jit
-    def add(
+    def add_and_track(
         self,
         batch_of_genotypes: Genotype,
         batch_of_descriptors: Descriptor,
         batch_of_fitnesses: Fitness,
         batch_of_extra_scores: Optional[ExtraScores] = None,
-    ) -> MapElitesRepertoire:
-        """
-        Add a batch of elements to the repertoire.
-
-        Args:
-            batch_of_genotypes: a batch of genotypes to be added to the repertoire.
-                Similarly to the self.genotypes argument, this is a PyTree in which
-                the leaves have a shape (batch_size, num_features)
-            batch_of_descriptors: an array that contains the descriptors of the
-                aforementioned genotypes. Its shape is (batch_size, num_descriptors)
-            batch_of_fitnesses: an array that contains the fitnesses of the
-                aforementioned genotypes. Its shape is (batch_size,)
-            batch_of_extra_scores: unused tree that contains the extra_scores of
-                aforementioned genotypes.
-
-        Returns:
-            The updated MAP-Elites repertoire.
-        """
-
+    ) -> Tuple[MapElitesRepertoire, bool]:
         num_centroids = self.centroids.shape[0]
 
         batch_of_indices = get_cells_indices(batch_of_descriptors, self.centroids)
@@ -366,13 +348,47 @@ class MapElitesRepertoire(flax.struct.PyTreeNode):
             batch_of_descriptors
         )
 
-        return MapElitesRepertoire(
+        new_repertoire = MapElitesRepertoire(
             genotypes=new_repertoire_genotypes,
             fitnesses=new_fitnesses,
             descriptors=new_descriptors,
             centroids=self.centroids,
             occupation=new_occupation
         )
+
+        return new_repertoire, addition_condition
+
+    @jax.jit
+    def add(
+        self,
+        batch_of_genotypes: Genotype,
+        batch_of_descriptors: Descriptor,
+        batch_of_fitnesses: Fitness,
+        batch_of_extra_scores: Optional[ExtraScores] = None,
+    ) -> MapElitesRepertoire:
+        """
+        Add a batch of elements to the repertoire.
+
+        Args:
+            batch_of_genotypes: a batch of genotypes to be added to the repertoire.
+                Similarly to the self.genotypes argument, this is a PyTree in which
+                the leaves have a shape (batch_size, num_features)
+            batch_of_descriptors: an array that contains the descriptors of the
+                aforementioned genotypes. Its shape is (batch_size, num_descriptors)
+            batch_of_fitnesses: an array that contains the fitnesses of the
+                aforementioned genotypes. Its shape is (batch_size,)
+            batch_of_extra_scores: unused tree that contains the extra_scores of
+                aforementioned genotypes.
+
+        Returns:
+            The updated MAP-Elites repertoire.
+        """
+
+        new_repertoire, _ = self.add_and_track(batch_of_genotypes,
+                                               batch_of_descriptors,
+                                               batch_of_fitnesses,
+                                               batch_of_extra_scores)
+        return new_repertoire
 
     @classmethod
     def init(
