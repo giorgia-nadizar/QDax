@@ -14,7 +14,8 @@ def get_graph_descriptor_extractor(config: Dict) -> Tuple[Callable[[Genotype], D
         "complexity": [0],
         "inputs_usage": [1],
         "function_arities": [2, 3],
-        "function_types": [4, 5, 6]
+        "function_types": [4, 5, 6],
+        "function_arities_fraction": [7]
     }
     descr_indexes = jnp.asarray([idx for desc_name in config["graph_descriptors"] for idx in indexes[desc_name]])
     if config["solver"] == "cgp":
@@ -144,7 +145,11 @@ def _functions_descriptor(functions_count: jnp.ndarray) -> jnp.ndarray:
     arithmetic_total = jnp.sum(jnp.take(functions_count, arithmetic_functions))
     logical_total = jnp.sum(jnp.take(functions_count, logical_functions))
     trigonometric_total = jnp.sum(jnp.take(functions_count, trigonometric_functions))
-    return jnp.asarray([one_arity_total, two_arity_total, arithmetic_total, logical_total, trigonometric_total])
+
+    arity_fraction = one_arity_total / (one_arity_total + two_arity_total)
+    return jnp.asarray(
+        [one_arity_total, two_arity_total, arithmetic_total, logical_total, trigonometric_total, arity_fraction]
+    )
 
 
 def _lgp_inputs_usage(
