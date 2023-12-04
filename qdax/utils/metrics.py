@@ -11,7 +11,7 @@ from jax import numpy as jnp
 
 from qdax.core.containers.ga_repertoire import GARepertoire
 from qdax.core.containers.mapelites_bi_repertoire import MapElitesBiRepertoire
-from qdax.core.containers.mapelites_repertoire import MapElitesRepertoire
+from qdax.core.containers.mapelites_repertoire import MapElitesRepertoire, get_cells_indices
 from qdax.core.containers.mome_repertoire import MOMERepertoire
 from qdax.core.containers.nsga2_repertoire import NSGA2Repertoire
 from qdax.types import Metrics
@@ -124,6 +124,34 @@ def default_qd_metrics(repertoire: MapElitesRepertoire, qd_offset: float) -> Met
     max_fitness = jnp.max(repertoire.fitnesses)
 
     return {"qd_score": qd_score, "max_fitness": max_fitness, "coverage": coverage}
+
+
+def qd_metrics_with_bi_tracking(
+    repertoire: MapElitesRepertoire,
+    qd_offset: float,
+    centroids1: jnp.ndarray,
+    centroids2: jnp.ndarray,
+    descriptors_indexes1: jnp.ndarray,
+    descriptors_indexes2: jnp.ndarray
+) -> Metrics:
+    def _compute_coverage(full_descriptors: jnp.ndarray,
+                          centroids: jnp.ndarray,
+                          descriptors_indexes: jnp.ndarray
+                          ) -> jnp.ndarray:
+        descriptors = full_descriptors.take(descriptors_indexes, axis=1)
+        indices = get_cells_indices(descriptors, centroids)
+        binary_array = jnp.where(jnp.isin(jnp.arange(len(centroids)), indices), 1, 0)
+        return 100 * jnp.sum(binary_array) / len(centroids)
+
+    # get metrics
+    coverage1 = _compute_coverage(repertoire.descriptors, centroids1, descriptors_indexes1)
+    coverage2 = _compute_coverage(repertoire.descriptors, centroids2, descriptors_indexes2)
+
+    metrics = default_qd_metrics(repertoire, qd_offset)
+    metrics["coverage1"] = coverage1
+    metrics["coverage2"] = coverage2
+
+    return metrics
 
 
 def default_biqd_metrics(bi_repertoire: MapElitesBiRepertoire, qd_offset: float) -> Metrics:
