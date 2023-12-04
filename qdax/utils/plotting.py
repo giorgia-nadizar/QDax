@@ -93,6 +93,7 @@ def plot_2d_map_elites_repertoire(
     ax: Optional[plt.Axes] = None,
     vmin: Optional[float] = None,
     vmax: Optional[float] = None,
+    axs_labels : Optional[List[str]] = None
 ) -> Tuple[Optional[Figure], Axes]:
     """Plot a visual representation of a 2d map elites repertoire.
 
@@ -199,8 +200,12 @@ def plot_2d_map_elites_repertoire(
         )
 
     # aesthetic
-    ax.set_xlabel("Behavior Dimension 1")
-    ax.set_ylabel("Behavior Dimension 2")
+    if axs_labels is None:
+        ax.set_xlabel("Behavior Dimension 1")
+        ax.set_ylabel("Behavior Dimension 2")
+    else:
+        ax.set_xlabel(axs_labels[0])
+        ax.set_ylabel(axs_labels[1])
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
     cbar = plt.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=my_cmap), cax=cax)
