@@ -10,6 +10,7 @@ import jax
 from jax import numpy as jnp
 
 from qdax.core.containers.ga_repertoire import GARepertoire
+from qdax.core.containers.mapelites_bi_repertoire import MapElitesBiRepertoire
 from qdax.core.containers.mapelites_repertoire import MapElitesRepertoire
 from qdax.core.containers.mome_repertoire import MOMERepertoire
 from qdax.core.containers.nsga2_repertoire import NSGA2Repertoire
@@ -94,7 +95,7 @@ def default_nsga2_metrics(
     return {
         "max_fitness": max_fitness,
         "pareto_front_size": pareto_front_size,
-        "pareto_fitnesses" : pareto_fitnesses
+        "pareto_fitnesses": pareto_fitnesses
     }
 
 
@@ -123,6 +124,19 @@ def default_qd_metrics(repertoire: MapElitesRepertoire, qd_offset: float) -> Met
     max_fitness = jnp.max(repertoire.fitnesses)
 
     return {"qd_score": qd_score, "max_fitness": max_fitness, "coverage": coverage}
+
+
+def default_biqd_metrics(bi_repertoire: MapElitesBiRepertoire, qd_offset: float) -> Metrics:
+    qd_metrics1 = default_qd_metrics(bi_repertoire.repertoire1, qd_offset)
+    qd_metrics2 = default_qd_metrics(bi_repertoire.repertoire2, qd_offset)
+
+    return {
+        "qd_score1": qd_metrics1["qd_score"],
+        "coverage1": qd_metrics1["coverage"],
+        "qd_score2": qd_metrics2["qd_score"],
+        "coverage2": qd_metrics2["coverage"],
+        "max_fitness": qd_metrics1["max_fitness"],
+    }
 
 
 def default_moqd_metrics(

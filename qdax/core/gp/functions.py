@@ -55,13 +55,19 @@ available_functions = {
     "sin": JaxFunction(lambda x, y: jnp.sin(x), 1, "sin"),
     "cos": JaxFunction(lambda x, y: jnp.cos(x), 1, "cos"),
     "prot_log": JaxFunction(lambda x, y: jnp.log(jnp.abs(x)), 1, "log"),
+    "sqrt": JaxFunction(lambda x, y: jnp.sqrt(jnp.abs(x)), 1, "sqrt"),
     "lower": JaxFunction(lambda x, y: jnp.add(0.0, x < y), 2, "<"),
     "greater": JaxFunction(lambda x, y: jnp.add(0.0, x > y), 2, ">"),
-    "sqrt": JaxFunction(lambda x, y: jnp.sqrt(jnp.abs(x)), 1, "sqrt"),
+    "lower0": JaxFunction(lambda x, y: jnp.add(0.0, x < 0.0), 1, "<0"),
+    "greater0": JaxFunction(lambda x, y: jnp.add(0.0, x > 0.0), 1, ">0"),
 }
 
 function_arities = jnp.asarray([x.arity for x in available_functions.values()])
 constants = jnp.asarray([0.1, 1])
+
+arithmetic_functions = jnp.arange(4)
+logical_functions = jnp.arange(start=len(available_functions) - 4 - 1, stop=len(available_functions), step=1)
+trigonometric_functions = jnp.arange(start=len(arithmetic_functions), stop=logical_functions[0], step=1)
 
 
 @jit

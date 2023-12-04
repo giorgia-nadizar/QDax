@@ -128,7 +128,7 @@ def compute_mutation_fn(
     genome_mask: jnp.ndarray,
     mutation_mask: jnp.ndarray
 ) -> Callable[[Genotype, RNGKey], Tuple[Genotype, RNGKey]]:
-    def _mutation_fn(genomes, rand_key):
+    def _mutation_fn(genomes: Genotype, rand_key: RNGKey) -> Tuple[Genotype, RNGKey]:
         rand_key, *mutate_keys = random.split(rand_key, len(genomes) + 1)
         mutated_genomes = vmap(
             partial(mutate_genome, genome_mask=genome_mask, mutation_mask=mutation_mask),
@@ -137,6 +137,38 @@ def compute_mutation_fn(
         return mutated_genomes, rand_key
 
     return _mutation_fn
+
+
+def compute_variation_fn() -> Callable[[Genotype, Genotype, RNGKey], Tuple[Genotype, RNGKey]]:
+    def _variation_fn(genomes1: Genotype, genomes2: Genotype, rand_key: RNGKey) -> Tuple[Genotype, RNGKey]:
+        rand_key, *var_keys = random.split(rand_key, len(genomes1) + 1)
+        crossed_over_genomes, _ = vmap(
+            lgp_one_point_crossover_genomes,
+            in_axes=(0, 0, 0)
+        )(genomes1, genomes2, jnp.array(var_keys))
+        return crossed_over_genomes, rand_key
+
+    return _variation_fn
+
+
+def compute_variation_mutation_fn(
+    genome_mask: jnp.ndarray,
+    mutation_mask: jnp.ndarray
+) -> Callable[[Genotype, Genotype, RNGKey], Tuple[Genotype, RNGKey]]:
+    def _variation_mutation_fn(genomes1: Genotype, genomes2: Genotype, rand_key: RNGKey) -> Tuple[Genotype, RNGKey]:
+        rand_key, *var_keys = random.split(rand_key, len(genomes1) + 1)
+        crossed_over_genomes, _ = vmap(
+            lgp_one_point_crossover_genomes,
+            in_axes=(0, 0, 0)
+        )(genomes1, genomes2, jnp.array(var_keys))
+        rand_key, *mutate_keys = random.split(rand_key, len(crossed_over_genomes) + 1)
+        mutated_genomes = vmap(
+            partial(mutate_genome, genome_mask=genome_mask, mutation_mask=mutation_mask),
+            in_axes=(0, 0)
+        )(crossed_over_genomes, jnp.array(mutate_keys))
+        return mutated_genomes, rand_key
+
+    return _variation_mutation_fn
 
 
 def mutate_genome(

@@ -25,6 +25,7 @@ from qdax.types import (
         "episode_length",
         "encoding_fn",
         "behavior_descriptor_extractor",
+        "graph_descriptor_extractor"
     ),
 )
 def gp_scoring_function_brax_envs(
@@ -36,7 +37,14 @@ def gp_scoring_function_brax_envs(
         [jnp.ndarray],
         Callable[[EnvState, ProgramState, RNGKey], Tuple[EnvState, ProgramState, RNGKey, Transition]]
     ],
-    behavior_descriptor_extractor: Callable[[QDTransition, jnp.ndarray], Descriptor],
+    behavior_descriptor_extractor: Callable[
+        [QDTransition, jnp.ndarray],
+        Descriptor
+    ] = vmap(lambda x, y: jnp.empty((0,))),
+    graph_descriptor_extractor: Callable[
+        [Genotype],
+        Descriptor
+    ] = vmap(lambda x: jnp.empty((0,)))
 ) -> Tuple[Fitness, Descriptor, ExtraScores, RNGKey]:
     def _generate_unroll(
         init_state: Tuple[EnvState, ProgramState],
@@ -72,7 +80,81 @@ def gp_scoring_function_brax_envs(
 
     # scores
     fitnesses = jnp.sum(data.rewards * (1.0 - mask), axis=1)
-    descriptors = behavior_descriptor_extractor(data, mask)
+    env_descriptors = behavior_descriptor_extractor(data, mask)
+    graph_descriptors = graph_descriptor_extractor(genotypes)
+    descriptors = jnp.concatenate([env_descriptors, graph_descriptors], axis=1)
+
+    return (
+        fitnesses,
+        descriptors,
+        {
+            "transitions": data,
+        },
+        random_key,
+    )
+
+
+@partial(
+    jax.jit,
+    static_argnames=(
+        "episode_length",
+        "encoding_fn",
+        "behavior_descriptor_extractor"
+    ),
+)
+def gp_scoring_function_brax_envs_rewards_descriptors(
+    genotypes: Genotype,
+    random_key: RNGKey,
+    init_states: Tuple[EnvState, ProgramState],
+    episode_length: int,
+    encoding_fn: Callable[
+        [jnp.ndarray],
+        Callable[[EnvState, ProgramState, RNGKey], Tuple[EnvState, ProgramState, RNGKey, Transition]]
+    ],
+    behavior_descriptor_extractor: Callable[
+        [QDTransition, jnp.ndarray],
+        Descriptor
+    ] = vmap(lambda x, y: jnp.empty((0,)))
+) -> Tuple[Fitness, Descriptor, ExtraScores, RNGKey]:
+    def _generate_unroll(
+        init_state: Tuple[EnvState, ProgramState],
+        genotype: Genotype,
+        random_key: RNGKey
+    ) -> Tuple[EnvState, QDTransition]:
+        program_step_fn = encoding_fn(genotype)
+        init_env_state, init_program_state = init_state
+
+        def _scan_play_step_fn(
+            carry: Tuple[EnvState, ProgramState, RNGKey], unused_arg: Any
+        ) -> Tuple[Tuple[EnvState, ProgramState, RNGKey], Transition]:
+            env_s, program_s, rnd_key, transition = program_step_fn(*carry)
+            return (env_s, program_s, rnd_key), transition
+
+        (env_state, program_state, _), transitions = jax.lax.scan(
+            f=_scan_play_step_fn,
+            init=(init_env_state, init_program_state, random_key),
+            xs=(),
+            length=episode_length
+        )
+
+        return env_state, transitions
+
+    random_key, subkey = jax.random.split(random_key)
+    unroll_fn = partial(_generate_unroll, random_key=subkey)
+    _, data = jax.vmap(unroll_fn)(init_states, genotypes)
+
+    # create a mask to extract data properly
+    is_done = jnp.clip(jnp.cumsum(data.dones, axis=1), 0, 1)
+    mask = jnp.roll(is_done, 1, axis=1)
+    mask = mask.at[:, 0].set(0)
+
+    # scores
+    fitnesses = jnp.sum(data.rewards * (1.0 - mask), axis=1)
+    env_descriptors = behavior_descriptor_extractor(data, mask)
+    health_rewards = jnp.expand_dims(jnp.sum(data.health_rewards * (1.0 - mask), axis=1), axis=1)
+    run_rewards = jnp.expand_dims(jnp.sum(data.run_rewards * (1.0 - mask), axis=1), axis=1)
+
+    descriptors = jnp.concatenate([env_descriptors, health_rewards, run_rewards], axis=1)
 
     return (
         fitnesses,
