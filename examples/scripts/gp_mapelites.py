@@ -416,8 +416,9 @@ if __name__ == '__main__':
     print(f"Target path: {path}\n")
     n_itx = 10000
 
-    seeds = range(5, 10)
-    sampling_methods = ["both", "s1", "s2", "me"]
+    seeds = range(5)
+    # sampling_methods = ["both", "s1", "s2", "me"]
+    sampling_methods = ["s2"]
 
     custom_seed = os.environ.get("SEED")
     if custom_seed is not None:
@@ -430,10 +431,10 @@ if __name__ == '__main__':
         print(f"Custom sampling: {custom_sampling}")
 
     env_duration_tuples = [
-        ("pointmaze", 100),
+        # ("pointmaze", 100),
         ("kheperax", 250),
         ("hopper_uni", 1000),
-        ("walker2d_uni", 1000),
+        # ("walker2d_uni", 1000),
     ]
 
     print(f"Total runs: {len(seeds) * len(env_duration_tuples) * len(sampling_methods)}")
@@ -443,7 +444,8 @@ if __name__ == '__main__':
             env_cfg = {
                 "n_nodes": 50,
                 "p_mut_inputs": 0.1,
-                "p_mut_functions": 0.1,
+                # "p_mut_functions": 0.1,
+                "p_mut_functions": 0.3,
                 "p_mut_outputs": 0.3,
                 "solver": "cgp",
                 "env_name": env_name,
