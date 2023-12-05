@@ -168,4 +168,4 @@ dmypy.json
 cython_debug/
 
 # Results folder
-results/
+!results/
