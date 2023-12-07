@@ -104,22 +104,29 @@ def _compute_lgp_genome_mask(
 def generate_genome(
     genome_mask: jnp.ndarray,
     rnd_key: RNGKey,
-    genome_transformation_function: Callable[[jnp.ndarray], jnp.ndarray] = _identity
+    genome_transformation_function: Callable[[jnp.ndarray], jnp.ndarray] = _identity,
+    fixed_trailing: jnp.ndarray = jnp.asarray([])
 ) -> jnp.ndarray:
     float_genome = random.uniform(key=rnd_key, shape=genome_mask.shape)
     integer_genome = jnp.floor(float_genome * genome_mask).astype(int)
-    return genome_transformation_function(integer_genome)
+    transformed_genome = genome_transformation_function(integer_genome)
+    genome_trail, _ = jnp.split(transformed_genome, [len(transformed_genome) - len(fixed_trailing)])
+    return jnp.concatenate([genome_trail, fixed_trailing])
 
 
 def generate_population(
     pop_size: int,
     genome_mask: jnp.ndarray,
     rnd_key: RNGKey,
-    genome_transformation_function: Callable[[jnp.ndarray], jnp.ndarray] = _identity
+    genome_transformation_function: Callable[[jnp.ndarray], jnp.ndarray] = _identity,
+    fixed_genome_trailing: jnp.ndarray = jnp.asarray([])
 ) -> jnp.ndarray:
     sub_keys = random.split(rnd_key, pop_size)
-    partial_generate_genome = partial(generate_genome, genome_mask=genome_mask,
-                                      genome_transformation_function=genome_transformation_function)
+    partial_generate_genome = partial(generate_genome,
+                                      genome_mask=genome_mask,
+                                      genome_transformation_function=genome_transformation_function,
+                                      fixed_trailing=fixed_genome_trailing
+                                      )
     vmap_generate_genome = vmap(partial_generate_genome)
     return vmap_generate_genome(rnd_key=sub_keys)
 
