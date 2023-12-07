@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Dict, Tuple, Callable
+from typing import Dict, Tuple, Callable, List
 
 from jax import numpy as jnp, vmap
 from jax.lax import fori_loop
@@ -17,7 +17,9 @@ def get_graph_descriptor_extractor(config: Dict) -> Tuple[Callable[[Genotype], D
         "function_types": [4, 5, 6],
         "function_arities_fraction": [7]
     }
-    descr_indexes = jnp.asarray([idx for desc_name in config["graph_descriptors"] for idx in indexes[desc_name]])
+    list_of_descriptors = config["graph_descriptors"] if isinstance(config["graph_descriptors"], list) \
+        else [config["graph_descriptors"]]
+    descr_indexes = jnp.asarray([idx for desc_name in list_of_descriptors for idx in indexes[desc_name]])
     if config["solver"] == "cgp":
         single_genome_descriptor_function = partial(compute_cgp_descriptors, config=config,
                                                     descriptors_indexes=descr_indexes)
@@ -60,8 +62,8 @@ def compute_lgp_descriptors(genome: jnp.ndarray, config: Dict, descriptors_index
 
 
 def compute_cgp_active_graph(
-    genome: jnp.ndarray,
-    config: Dict
+        genome: jnp.ndarray,
+        config: Dict
 ) -> jnp.ndarray:
     n_nodes, n_out, n_in = config["n_nodes"], config["n_out"], config["n_in"]
     x_genes, y_genes, f_genes, out_genes = jnp.split(genome, [n_nodes, 2 * n_nodes, 3 * n_nodes])
@@ -78,8 +80,8 @@ def compute_cgp_active_graph(
 
 
 def compute_lgp_coding_lines(
-    genome: jnp.ndarray,
-    config: Dict
+        genome: jnp.ndarray,
+        config: Dict
 ) -> jnp.ndarray:
     n_rows, n_registers, n_out, n_in = config["n_rows"], config["n_registers"], config["n_out"], config["n_in"]
     lhs_genes, x_genes, y_genes, f_genes = jnp.split(genome, 4)
@@ -99,8 +101,8 @@ def _cgp_count_functions(active: jnp.ndarray, genome: jnp.ndarray, config: Dict)
     _, _, f_genes, _ = jnp.split(genome, [config["n_nodes"], 2 * config["n_nodes"], 3 * config["n_nodes"]])
 
     def _count_cgp_functions(
-        idx: int,
-        carry: Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray],
+            idx: int,
+            carry: Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray],
     ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
         active, f_genes, f_counter = carry
         n_in = len(active) - len(f_genes)
@@ -121,8 +123,8 @@ def _lgp_count_functions(active: jnp.ndarray, genome: jnp.ndarray) -> jnp.ndarra
     _, _, _, f_genes = jnp.split(genome, 4)
 
     def _count_lgp_functions(
-        idx: int,
-        carry: Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray],
+            idx: int,
+            carry: Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray],
     ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
         active, f_genes, f_counter = carry
         f_id = f_genes.at[idx].get()
@@ -154,9 +156,9 @@ def _functions_descriptor(functions_count: jnp.ndarray, max_n_functions: int) ->
 
 
 def _lgp_inputs_usage(
-    active: jnp.ndarray,
-    genome: jnp.ndarray,
-    config: Dict
+        active: jnp.ndarray,
+        genome: jnp.ndarray,
+        config: Dict
 ) -> float:
     lhs_genes, x_genes, y_genes, f_genes = jnp.split(genome, 4)
     lhs_genes = lhs_genes + config["n_in"]
@@ -173,8 +175,8 @@ def _lgp_inputs_usage(
 
 
 def _compute_lgp_used_inputs(
-    line_id: int,
-    carry: Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]
+        line_id: int,
+        carry: Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]
 ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
     used_regs, rewr_regs, active_lines, lhs_genes, x_genes, y_genes, f_genes = carry
     active_line = active_lines.at[line_id].get()
@@ -195,17 +197,17 @@ def _compute_lgp_used_inputs(
 
 
 def _compute_complexity(
-    genome: jnp.ndarray,
-    config: Dict,
-    compute_active_fn: Callable[[jnp.ndarray, Dict], jnp.ndarray]
+        genome: jnp.ndarray,
+        config: Dict,
+        compute_active_fn: Callable[[jnp.ndarray, Dict], jnp.ndarray]
 ) -> float:
     active = compute_active_fn(genome, config)
     return jnp.sum(active) / len(active)
 
 
 def _compute_active_graph(
-    opposite_idx: int,
-    carry: Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, int],
+        opposite_idx: int,
+        carry: Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, int],
 ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, int]:
     active, x_genes, y_genes, f_genes, n_in = carry
     idx = len(active) - opposite_idx - 1
@@ -218,8 +220,8 @@ def _compute_active_graph(
 
 
 def _set_used_lines(
-    opposite_idx: int,
-    carry: Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]
+        opposite_idx: int,
+        carry: Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]
 ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
     active, regs_mask, lhs_genes, x_genes, y_genes, f_genes = carry
     row_idx = len(active) - opposite_idx - 1
