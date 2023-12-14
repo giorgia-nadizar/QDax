@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Union
 
 import brax.envs
 import flax.struct
@@ -299,7 +299,7 @@ class KheperaxTargetedTask(KheperaxTask):
         random_key, subkey = jax.random.split(random_key)
         new_random_key = subkey
 
-        return state.replace(
+        return state.replace(  # type: ignore
             maze=state.maze,
             robot=new_robot,
             obs=obs,
@@ -307,3 +307,77 @@ class KheperaxTargetedTask(KheperaxTask):
             done=done,
             random_key=new_random_key,
         )
+
+
+class KheperaxSpeedTargetedTask(KheperaxTargetedTask):
+    target_width: float
+
+    def __init__(self, kheperax_config: KheperaxConfig, target_point: jnp.ndarray, target_width: float, **kwargs):
+        self.target_width = target_width
+        super().__init__(kheperax_config=kheperax_config, target_point=target_point, **kwargs)
+
+    @classmethod
+    def create_environment(
+            cls,
+            kheperax_config: KheperaxConfig,
+            target_point: jnp.ndarray = jnp.asarray([0.125, 0.9]),
+            target_width: float = 0.1
+    ):
+        env = cls(kheperax_config, target_point, target_width)
+        env = brax.envs.wrappers.EpisodeWrapper(env, kheperax_config.episode_length, action_repeat=1)
+        env = TypeFixerWrapper(env)
+        return env
+
+    def _in_zone(self, x_pos: jnp.ndarray, y_pos: jnp.ndarray) -> Union[bool, jnp.ndarray]:
+        target_x, target_y = self.target_point.at[0].get(), self.target_point.at[1].get()
+
+        condition_1 = target_x - self.target_width / 2 <= x_pos
+        condition_2 = x_pos <= target_x + self.target_width / 2
+
+        condition_3 = target_y - self.target_width / 2 <= y_pos
+        condition_4 = y_pos <= target_y + self.target_width / 2
+
+        return condition_1 & condition_2 & condition_3 & condition_4
+
+    def step(self, state: KheperaxState, action: jnp.ndarray) -> KheperaxState:
+        random_key = state.random_key
+
+        # actions should be between -1 and 1
+        action = jnp.clip(action, -1., 1.)
+
+        random_key, subkey = jax.random.split(random_key)
+        wheel_velocities = self._get_wheel_velocities(action, subkey)
+
+        new_robot, bumper_measures = state.robot.move(wheel_velocities[0], wheel_velocities[1], state.maze)
+
+        random_key, subkey = jax.random.split(random_key)
+        obs = self._get_obs(new_robot, state.maze, bumper_measures=bumper_measures, random_key=subkey)
+        xy_pos = state.info["state_descriptor"] = self.get_xy_pos(new_robot)
+
+        # reward describes negative distance from target
+        reward = -jnp.linalg.norm(xy_pos - self.target_point)
+
+        # determine if zone was reached
+        in_zone = self._in_zone(xy_pos[0], xy_pos[1])
+
+        done = jnp.where(
+            jnp.array(in_zone),
+            x=jnp.array(1.0),
+            y=jnp.array(0.0),
+        )
+
+        random_key, subkey = jax.random.split(random_key)
+        new_random_key = subkey
+
+        return state.replace(  # type: ignore
+            maze=state.maze,
+            robot=new_robot,
+            obs=obs,
+            reward=reward,
+            done=done,
+            random_key=new_random_key,
+        )
+
+    def reset(self, random_key: jnp.ndarray) -> KheperaxState:
+        reset_state = super().reset(random_key)
+        return reset_state.replace(done=jnp.array(0.0))  # type : ignore
