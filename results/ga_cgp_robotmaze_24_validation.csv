@@ -1,0 +1,6 @@
+average_difference,max_difference,min_difference,average_relative_difference,min_relative_difference,max_relative_difference,max_validation_fitness,difference_of_maxs,relative_difference_of_maxs,relative_difference_baseline,seed,environment,sampling,repertoire_id,sensor_id
+-inf,593.5207,-3.4028235e+38,-0.8513389,-18.045652,1.0,-16.468597,0.0,-0.0,-0.0,24,robotmaze,ga,1,0
+-inf,507.84903,-3.4028235e+38,0.060817756,-30.837418,1.0,-32.74539,16.276794,-0.98835343,-30.837418,24,robotmaze,ga,1,1
+-inf,561.2887,-3.4028235e+38,0.021875514,-34.082363,1.0,-32.74539,16.276794,-0.98835343,-34.082363,24,robotmaze,ga,1,2
+-inf,767.7375,-3.4028235e+38,-0.43299383,-37.639202,1.0,-32.889954,16.421356,-0.9971314,-37.639202,24,robotmaze,ga,1,3
+-inf,234.91638,-3.4028235e+38,0.36655486,-0.5943934,1.0,-16.468597,0.0,-0.0,-0.0,24,robotmaze,ga,1,4
