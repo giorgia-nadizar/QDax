@@ -217,6 +217,94 @@ def plot_2d_map_elites_repertoire(
     return fig, ax
 
 
+def plot_2d_map_elites_repertoire_for_pgfplots(
+        centroids: jnp.ndarray,
+        repertoire_fitnesses: jnp.ndarray,
+        minval: jnp.ndarray,
+        maxval: jnp.ndarray,
+        target_file: str,
+        repertoire_descriptors: Optional[jnp.ndarray] = None,
+        vmin: Optional[float] = None,
+        vmax: Optional[float] = None,
+) -> Tuple[float, float]:
+
+    grid_empty = repertoire_fitnesses == -jnp.inf
+    num_descriptors = centroids.shape[1]
+    if num_descriptors != 2:
+        raise NotImplementedError("Grid plot supports 2 descriptors only for now.")
+
+    my_cmap = cm.viridis
+
+    fitnesses = repertoire_fitnesses
+    if vmin is None:
+        vmin = float(jnp.min(fitnesses[~grid_empty]))
+    if vmax is None:
+        vmax = float(jnp.max(fitnesses[~grid_empty]))
+
+    # set the parameters
+    params = {
+        "figure.figsize": [10, 10],
+    }
+
+    mpl.rcParams.update(params)
+
+    # create the plot object
+    fig = plt.figure(frameon=False)
+    ax = plt.Axes(fig, [0., 0., 1., 1.])
+
+    assert (
+            len(np.array(minval).shape) < 2
+    ), f"minval : {minval} should be float or couple of floats"
+    assert (
+            len(np.array(maxval).shape) < 2
+    ), f"maxval : {maxval} should be float or couple of floats"
+
+    if len(np.array(minval).shape) == 0 and len(np.array(maxval).shape) == 0:
+        ax.set_xlim(minval, maxval)
+        ax.set_ylim(minval, maxval)
+    else:
+        ax.set_xlim(minval[0], maxval[0])
+        ax.set_ylim(minval[1], maxval[1])
+
+    # create the regions and vertices from centroids
+    regions, vertices = get_voronoi_finite_polygons_2d(centroids)
+
+    norm = Normalize(vmin=vmin, vmax=vmax)
+
+    # fill the plot with contours
+    for region in regions:
+        polygon = vertices[region]
+        ax.fill(*zip(*polygon), alpha=0.05, edgecolor="black", facecolor="white", lw=1)
+
+    # fill the plot with the colors
+    for idx, fitness in enumerate(fitnesses):
+        if fitness > -jnp.inf:
+            region = regions[idx]
+            polygon = vertices[region]
+
+            ax.fill(*zip(*polygon), alpha=0.8, color=my_cmap(norm(fitness)))
+
+    # if descriptors are specified, add points location
+    if repertoire_descriptors is not None:
+        descriptors = repertoire_descriptors[~grid_empty]
+        ax.scatter(
+            descriptors[:, 0],
+            descriptors[:, 1],
+            c=fitnesses[~grid_empty],
+            cmap=my_cmap,
+            s=10,
+            zorder=0,
+        )
+
+    ax.set_axis_off()
+    fig.add_axes(ax)
+
+    # Save the figure without axis labels and colorbar
+    fig.savefig(target_file)
+
+    return vmin, vmax
+
+
 def plot_map_elites_results(
     env_steps: jnp.ndarray,
     metrics: Dict,
