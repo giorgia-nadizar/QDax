@@ -1,0 +1,3 @@
+average_difference,max_difference,min_difference,average_relative_difference,min_relative_difference,max_relative_difference,max_validation_fitness,difference_of_maxs,relative_difference_of_maxs,relative_difference_baseline,repertoire_id,sensor_id
+inf,3.4028235e+38,-56.594406,nan,-inf,inf,-36.172485,106.95959,1.5110039,1.5123781,main,0
+inf,3.4028235e+38,-101.147415,2.7433504e+35,-8.3134337e+37,1.266987e+38,29.050438,41.736664,0.5896083,1.8526592,main,1

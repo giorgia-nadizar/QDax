@@ -1,0 +1,6 @@
+average_difference,max_difference,min_difference,average_relative_difference,min_relative_difference,max_relative_difference,max_validation_fitness,difference_of_maxs,relative_difference_of_maxs,relative_difference_baseline,repertoire_id,sensor_id
+inf,3.4028235e+38,-485.32156,-2.335941e+34,-1.8193253e+36,122.97654,13.680008,0.0,0.0,0.0,main,0
+inf,3.4028235e+38,-377.99176,-9.68459e+34,-6.260751e+36,42266.18,-8.248932,21.92894,1.6029917,47.0384,main,1
+inf,3.4028235e+38,-520.53876,-6.0059396e+35,-1.0592668e+38,22700.648,-32.74539,46.4254,3.3936677,46.780426,main,2
+37.68436,743.56335,-523.21204,-0.47043267,-75.189514,54.403515,13.680008,0.0,0.0,0.0,main,3
+inf,3.4028235e+38,-706.9501,-2.3375807e+33,-5.003824e+35,58.539486,13.680008,0.0,0.0,0.0,main,4
