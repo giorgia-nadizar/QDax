@@ -10,6 +10,7 @@ import jax.numpy as jnp
 from jax.flatten_util import ravel_pytree
 
 from qdax.core.containers.repertoire import Repertoire
+from qdax.core.gp.selection import tournament_selection
 from qdax.types import Fitness, Genotype, RNGKey
 
 
@@ -77,6 +78,29 @@ class GARepertoire(Repertoire):
             fitnesses=fitnesses,
         )
 
+    @partial(jax.jit, static_argnames=("num_samples", "tournament_size"))
+    def tournament_sample(self,
+                          random_key: RNGKey,
+                          num_samples: int,
+                          tournament_size: int = 3
+                          ) -> Tuple[Genotype, RNGKey]:
+        """Sample genotypes from the repertoire with tournament selection.
+
+        Args:
+            random_key: a random key to handle stochasticity.
+            num_samples: the number of genotypes to sample.
+            tournament_size: the size of the tournament.
+
+        Returns:
+            The sample of genotypes.
+        """
+
+        tournament_sampling = partial(tournament_selection, tour_size=tournament_size)
+        random_key, sampling_key = jax.random.split(random_key)
+        samples = tournament_sampling(self.genotypes, self.fitnesses, random_key, num_samples)
+
+        return samples, random_key
+
     @partial(jax.jit, static_argnames=("num_samples",))
     def sample(self, random_key: RNGKey, num_samples: int) -> Tuple[Genotype, RNGKey]:
         """Sample genotypes from the repertoire.
@@ -103,6 +127,37 @@ class GARepertoire(Repertoire):
         )
 
         return samples, random_key
+
+    @partial(jax.jit, static_argnames=("elite_size",))
+    def add_elitist(
+            self,
+            batch_of_genotypes: Genotype,
+            batch_of_fitnesses: Fitness,
+            elite_size : int=10
+    ) -> GARepertoire:
+        """Implements the repertoire addition rules.
+
+        An elite of parents and the offsprings are kept.
+
+        Args:
+            batch_of_genotypes: new genotypes that we try to add.
+            batch_of_fitnesses: fitness of those new genotypes.
+            elite_size: the number of parents to save.
+
+        Returns:
+            The updated repertoire.
+        """
+
+        elites, _ = jnp.split(jnp.argsort(-self.fitnesses), [elite_size])
+        parents_genotypes = jnp.take(self.genotypes, elites, axis=0)
+        parents_fitnesses = jnp.take(self.fitnesses, elites, axis=0)
+
+        new_repertoire = self.replace(
+            genotypes=jnp.concatenate([parents_genotypes, batch_of_genotypes]),
+            fitnesses=jnp.concatenate([parents_fitnesses, batch_of_fitnesses]),
+        )
+
+        return new_repertoire  # type: ignore
 
     @jax.jit
     def add(
@@ -170,7 +225,8 @@ class GARepertoire(Repertoire):
         """
         # create default fitnesses
         default_fitnesses = -jnp.inf * jnp.ones(
-            shape=(population_size, fitnesses.shape[-1])
+            # shape=(population_size, fitnesses.shape[-1])
+            shape=(population_size,)
         )
 
         # create default genotypes
@@ -183,4 +239,4 @@ class GARepertoire(Repertoire):
 
         new_repertoire = repertoire.add(genotypes, fitnesses)
 
-        return new_repertoire  # type: ignore
+        return repertoire  # type: ignore
