@@ -130,6 +130,15 @@ class PointMaze(env.Env):
         # get the current position
         x_pos_old, y_pos_old = state.obs
 
+        # determine if zone was reached
+        in_zone = self._in_zone(x_pos_old, y_pos_old)
+
+        done = jp.where(
+            jp.array(in_zone),
+            x=jp.array(1.0),
+            y=jp.array(0.0),
+        )
+
         # compute the new position
         x_pos = x_pos_old + action[0]
         y_pos = y_pos_old + action[1]
@@ -144,14 +153,6 @@ class PointMaze(env.Env):
 
         reward = -jp.norm(
             jp.array([x_pos - self.zone_width_offset, y_pos - self.zone_height_offset])
-        )
-        # determine if zone was reached
-        in_zone = self._in_zone(x_pos, y_pos)
-
-        done = jp.where(
-            jp.array(in_zone),
-            x=jp.array(1.0),
-            y=jp.array(0.0),
         )
 
         new_obs = jp.array([x_pos, y_pos])

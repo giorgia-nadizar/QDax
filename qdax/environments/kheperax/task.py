@@ -32,6 +32,18 @@ class KheperaxConfig:
     resolution: Tuple[int, int]
 
     @classmethod
+    def with_episode_length(cls, episode_length: int):
+        return cls(
+            episode_length=episode_length,
+            mlp_policy_hidden_layer_sizes=(8,),
+            resolution=(64, 64),
+            action_scale=0.025,
+            maze=Maze.create_default_maze(),
+            robot=Robot.create_default_robot(),
+            std_noise_wheel_velocities=0.0,
+        )
+
+    @classmethod
     def get_default(cls):
         return cls(
             episode_length=250,
@@ -342,6 +354,16 @@ class KheperaxSpeedTargetedTask(KheperaxTargetedTask):
     def step(self, state: KheperaxState, action: jnp.ndarray) -> KheperaxState:
         random_key = state.random_key
 
+        # determine if zone was reached
+        old_xy_pos = self.get_xy_pos(state.robot)
+        in_zone = self._in_zone(old_xy_pos[0], old_xy_pos[1])
+
+        done = jnp.where(
+            jnp.array(in_zone),
+            x=jnp.array(1.0),
+            y=jnp.array(0.0),
+        )
+
         # actions should be between -1 and 1
         action = jnp.clip(action, -1., 1.)
 
@@ -356,15 +378,6 @@ class KheperaxSpeedTargetedTask(KheperaxTargetedTask):
 
         # reward describes negative distance from target
         reward = -jnp.linalg.norm(xy_pos - self.target_point)
-
-        # determine if zone was reached
-        in_zone = self._in_zone(xy_pos[0], xy_pos[1])
-
-        done = jnp.where(
-            jnp.array(in_zone),
-            x=jnp.array(1.0),
-            y=jnp.array(0.0),
-        )
 
         random_key, subkey = jax.random.split(random_key)
         new_random_key = subkey
