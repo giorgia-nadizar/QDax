@@ -58,8 +58,8 @@ available_functions = {
     "sqrt": JaxFunction(lambda x, y: jnp.sqrt(jnp.abs(x)), 1, "sqrt"),
     "lower": JaxFunction(lambda x, y: jnp.add(0.0, x < y), 2, "<"),
     "greater": JaxFunction(lambda x, y: jnp.add(0.0, x > y), 2, ">"),
-    "lower0": JaxFunction(lambda x, y: jnp.add(0.0, x < 0.0), 1, "<0"),
-    "greater0": JaxFunction(lambda x, y: jnp.add(0.0, x > 0.0), 1, ">0"),
+    "lower0": JaxFunction(lambda x, y: jnp.add(0.0, x < 0.0), 1, "<z"),
+    "greater0": JaxFunction(lambda x, y: jnp.add(0.0, x > 0.0), 1, ">z"),
 }
 
 function_arities = jnp.asarray([x.arity for x in available_functions.values()])
