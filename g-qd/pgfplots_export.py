@@ -1,10 +1,13 @@
-import os
 from statistics import median
 from typing import List, Union
 
 import pandas as pd
 from matplotlib import pyplot as plt
 from pandas import DataFrame
+
+import jax.numpy as jnp
+
+from qdax.utils.plotting import plot_2d_map_elites_repertoire_for_pgfplots
 
 
 def line_plot(df: DataFrame, x: str, y: Union[List[str], str], groups: Union[List[str], str] = None,
@@ -79,6 +82,8 @@ def _box_plot(df: DataFrame, x: str, y: str, file_name: str):
 
 if __name__ == '__main__':
     target_folder = "../pgfplots"
+
+    # line plots and box plots
     environments = ["pointmaze", "robotmaze", "hopper_uni", "walker2d_uni"]
 
     dfs = []
@@ -122,3 +127,51 @@ if __name__ == '__main__':
     filtered_df = validation_df[(validation_df["repertoire_id"] == 1) | (validation_df["repertoire_id"] == "main")]
     box_plot(filtered_df, x="sampling", y="max_validation_fitness", groups=["environment"],
              file_prefix=f"{target_folder}/validation_fitness")
+
+    # heat maps
+    ranges = {
+        "robotmaze": (-1165, -80),
+        "walker2d_uni": (0, 1900),
+        "interpretability": (77.9, 79.1),
+    }
+
+    plots = {
+        "walker2d_uni": ["interpretabilities", "fitnesses"],
+        "robotmaze": ["interpretabilities", "fitnesses", "validation_fitnesses_0", "validation_fitnesses_1",
+                      "validation_fitnesses_2", "validation_fitnesses_3", "validation_fitnesses_4"],
+    }
+
+    with open(f"{target_folder}/ranges.csv", "w") as file:
+        for env in plots.keys():
+            for sd in range(1):
+                run = f"bimapelites_both_cgp_{env}_0"
+
+                repertoire_base_folder = "../results/" + run
+                for plot in plots[env]:
+                    for rep in range(1, 3):
+
+                        values = jnp.nan_to_num(
+                            jnp.load(f"{repertoire_base_folder}/r{rep}_{plot}.npy"),
+                            nan=-jnp.inf,
+                            neginf=-jnp.inf
+                        )
+
+                        if "fitness" in plot:
+                            curr_range = ranges[env]
+                        elif "interpretabilities" in plot:
+                            curr_range = ranges["interpretability"]
+                        else:
+                            curr_range = None, None
+
+                        file_name = f"{run}_r{rep}_{plot}"
+
+                        v_min, v_max = plot_2d_map_elites_repertoire_for_pgfplots(
+                            centroids=jnp.load(f"{repertoire_base_folder}/r{rep}_centroids.npy"),
+                            repertoire_fitnesses=values,
+                            minval=jnp.asarray([0, 0]),
+                            maxval=jnp.asarray([1, 1]),
+                            vmin=curr_range[0],
+                            vmax=curr_range[1],
+                            target_file=f"{target_folder}/{file_name}.pdf"
+                        )
+                        file.write(f"{file_name}\t{v_min}\t{v_max}\n")
