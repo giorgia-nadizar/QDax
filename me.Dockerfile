@@ -96,10 +96,7 @@ FROM cuda-image as run-image
 COPY qdax qdax
 COPY setup.py ./
 COPY README.md ./
-#COPY examples/scripts/gp_mapelites_symm_double.py ./
-#COPY examples/scripts/gp_mapelites_rews_double.py ./
-COPY examples/scripts/gp_mapelites.py ./
-#COPY examples/scripts/mapelites.py ./
+COPY g-qd/run.py ./
 
 RUN pip install .
 
@@ -109,4 +106,4 @@ RUN pip install .
 
 
 
-CMD ["python", "./gp_mapelites.py", "/app/docker-res"]
+CMD ["python", "./run.py", "/app/docker-res"]
