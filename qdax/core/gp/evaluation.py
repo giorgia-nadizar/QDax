@@ -22,40 +22,46 @@ from qdax.types import (
 @partial(
     jax.jit,
     static_argnames=(
-        "episode_length",
-        "encoding_fn",
-        "behavior_descriptor_extractor",
-        "graph_descriptor_extractor"
+            "episode_length",
+            "genotype_split_fn",
+            "controller_encoding_fn",
+            "state_altering_fn",
+            "behavior_descriptor_extractor",
+            "graph_descriptor_extractor"
     ),
 )
-def gp_scoring_function_brax_envs(
-    genotypes: Genotype,
-    random_key: RNGKey,
-    init_states: Tuple[EnvState, ProgramState],
-    episode_length: int,
-    encoding_fn: Callable[
-        [jnp.ndarray],
-        Callable[[EnvState, ProgramState, RNGKey], Tuple[EnvState, ProgramState, RNGKey, Transition]]
-    ],
-    behavior_descriptor_extractor: Callable[
-        [QDTransition, jnp.ndarray],
-        Descriptor
-    ] = vmap(lambda x, y: jnp.empty((0,))),
-    graph_descriptor_extractor: Callable[
-        [Genotype],
-        Descriptor
-    ] = vmap(lambda x: jnp.empty((0,)))
+def numerical_body_gp_controller_scoring_fn(
+        genotypes: Genotype,
+        random_key: RNGKey,
+        init_states: Tuple[EnvState, ProgramState],
+        episode_length: int,
+        genotype_split_fn: Callable[[jnp.ndarray], Tuple[jnp.ndarray, jnp.ndarray]],
+        controller_encoding_fn: Callable[
+            [jnp.ndarray],
+            Callable[[EnvState, ProgramState, RNGKey], Tuple[EnvState, ProgramState, RNGKey, Transition]]
+        ],
+        state_altering_fn: Callable[[jnp.ndarray, EnvState], EnvState] = lambda arr, state: state,
+        behavior_descriptor_extractor: Callable[
+            [QDTransition, jnp.ndarray],
+            Descriptor
+        ] = vmap(lambda x, y: jnp.empty((0,))),
+        graph_descriptor_extractor: Callable[
+            [Genotype],
+            Descriptor
+        ] = vmap(lambda x: jnp.empty((0,)))
 ) -> Tuple[Fitness, Descriptor, ExtraScores, RNGKey]:
     def _generate_unroll(
-        init_state: Tuple[EnvState, ProgramState],
-        genotype: Genotype,
-        random_key: RNGKey
+            init_state: Tuple[EnvState, ProgramState],
+            genotype: Genotype,
+            random_key: RNGKey
     ) -> Tuple[EnvState, QDTransition]:
-        program_step_fn = encoding_fn(genotype)
+        body_genotype, controller_genotype = genotype_split_fn(genotype)
+        program_step_fn = controller_encoding_fn(controller_genotype.astype(int))
         init_env_state, init_program_state = init_state
+        init_env_state = state_altering_fn(body_genotype, init_env_state)
 
         def _scan_play_step_fn(
-            carry: Tuple[EnvState, ProgramState, RNGKey], unused_arg: Any
+                carry: Tuple[EnvState, ProgramState, RNGKey], unused_arg: Any
         ) -> Tuple[Tuple[EnvState, ProgramState, RNGKey], Transition]:
             env_s, program_s, rnd_key, transition = program_step_fn(*carry)
             return (env_s, program_s, rnd_key), transition
@@ -97,35 +103,110 @@ def gp_scoring_function_brax_envs(
 @partial(
     jax.jit,
     static_argnames=(
-        "episode_length",
-        "encoding_fn",
-        "behavior_descriptor_extractor"
+            "episode_length",
+            "encoding_fn",
+            "behavior_descriptor_extractor",
+            "graph_descriptor_extractor"
     ),
 )
-def gp_scoring_function_brax_envs_rewards_descriptors(
-    genotypes: Genotype,
-    random_key: RNGKey,
-    init_states: Tuple[EnvState, ProgramState],
-    episode_length: int,
-    encoding_fn: Callable[
-        [jnp.ndarray],
-        Callable[[EnvState, ProgramState, RNGKey], Tuple[EnvState, ProgramState, RNGKey, Transition]]
-    ],
-    behavior_descriptor_extractor: Callable[
-        [QDTransition, jnp.ndarray],
-        Descriptor
-    ] = vmap(lambda x, y: jnp.empty((0,)))
+def gp_scoring_function_brax_envs(
+        genotypes: Genotype,
+        random_key: RNGKey,
+        init_states: Tuple[EnvState, ProgramState],
+        episode_length: int,
+        encoding_fn: Callable[
+            [jnp.ndarray],
+            Callable[[EnvState, ProgramState, RNGKey], Tuple[EnvState, ProgramState, RNGKey, Transition]]
+        ],
+        behavior_descriptor_extractor: Callable[
+            [QDTransition, jnp.ndarray],
+            Descriptor
+        ] = vmap(lambda x, y: jnp.empty((0,))),
+        graph_descriptor_extractor: Callable[
+            [Genotype],
+            Descriptor
+        ] = vmap(lambda x: jnp.empty((0,)))
 ) -> Tuple[Fitness, Descriptor, ExtraScores, RNGKey]:
     def _generate_unroll(
-        init_state: Tuple[EnvState, ProgramState],
-        genotype: Genotype,
-        random_key: RNGKey
+            init_state: Tuple[EnvState, ProgramState],
+            genotype: Genotype,
+            random_key: RNGKey
     ) -> Tuple[EnvState, QDTransition]:
         program_step_fn = encoding_fn(genotype)
         init_env_state, init_program_state = init_state
 
         def _scan_play_step_fn(
-            carry: Tuple[EnvState, ProgramState, RNGKey], unused_arg: Any
+                carry: Tuple[EnvState, ProgramState, RNGKey], unused_arg: Any
+        ) -> Tuple[Tuple[EnvState, ProgramState, RNGKey], Transition]:
+            env_s, program_s, rnd_key, transition = program_step_fn(*carry)
+            return (env_s, program_s, rnd_key), transition
+
+        (env_state, program_state, _), transitions = jax.lax.scan(
+            f=_scan_play_step_fn,
+            init=(init_env_state, init_program_state, random_key),
+            xs=(),
+            length=episode_length
+        )
+
+        return env_state, transitions
+
+    random_key, subkey = jax.random.split(random_key)
+    unroll_fn = partial(_generate_unroll, random_key=subkey)
+    _, data = jax.vmap(unroll_fn)(init_states, genotypes)
+
+    # create a mask to extract data properly
+    is_done = jnp.clip(jnp.cumsum(data.dones, axis=1), 0, 1)
+    mask = jnp.roll(is_done, 1, axis=1)
+    mask = mask.at[:, 0].set(0)
+
+    # scores
+    fitnesses = jnp.sum(data.rewards * (1.0 - mask), axis=1)
+    env_descriptors = behavior_descriptor_extractor(data, mask)
+    graph_descriptors = graph_descriptor_extractor(genotypes)
+    descriptors = jnp.concatenate([env_descriptors, graph_descriptors], axis=1)
+
+    return (
+        fitnesses,
+        descriptors,
+        {
+            "transitions": data,
+        },
+        random_key,
+    )
+
+
+@partial(
+    jax.jit,
+    static_argnames=(
+            "episode_length",
+            "encoding_fn",
+            "behavior_descriptor_extractor"
+    ),
+)
+def gp_scoring_function_brax_envs_rewards_descriptors(
+        genotypes: Genotype,
+        random_key: RNGKey,
+        init_states: Tuple[EnvState, ProgramState],
+        episode_length: int,
+        encoding_fn: Callable[
+            [jnp.ndarray],
+            Callable[[EnvState, ProgramState, RNGKey], Tuple[EnvState, ProgramState, RNGKey, Transition]]
+        ],
+        behavior_descriptor_extractor: Callable[
+            [QDTransition, jnp.ndarray],
+            Descriptor
+        ] = vmap(lambda x, y: jnp.empty((0,)))
+) -> Tuple[Fitness, Descriptor, ExtraScores, RNGKey]:
+    def _generate_unroll(
+            init_state: Tuple[EnvState, ProgramState],
+            genotype: Genotype,
+            random_key: RNGKey
+    ) -> Tuple[EnvState, QDTransition]:
+        program_step_fn = encoding_fn(genotype)
+        init_env_state, init_program_state = init_state
+
+        def _scan_play_step_fn(
+                carry: Tuple[EnvState, ProgramState, RNGKey], unused_arg: Any
         ) -> Tuple[Tuple[EnvState, ProgramState, RNGKey], Transition]:
             env_s, program_s, rnd_key, transition = program_step_fn(*carry)
             return (env_s, program_s, rnd_key), transition
@@ -167,18 +248,18 @@ def gp_scoring_function_brax_envs_rewards_descriptors(
 
 
 def evaluate_program(
-    program: Program,
-    initial_program_state: ProgramState,
-    rnd_key: RNGKey,
-    env: Env,
-    episode_length: int = 1000
+        program: Program,
+        initial_program_state: ProgramState,
+        rnd_key: RNGKey,
+        env: Env,
+        episode_length: int = 1000
 ) -> Tuple[float, Tuple[float, float, float]]:
     initial_env_state = jit(env.reset)(rnd_key)
     initial_rewards_state = (0.0, 0.0, 0.0)
 
     def _rollout_loop(
-        carry: Tuple[EnvState, ProgramState, Tuple[float, float, float], float, int],
-        unused_arg: Any
+            carry: Tuple[EnvState, ProgramState, Tuple[float, float, float], float, int],
+            unused_arg: Any
     ) -> Tuple[Tuple[EnvState, ProgramState, Tuple[float, float, float], float, int], Any]:
         env_state, program_state, rewards_state, cum_rew, active_episode = carry
         inputs = env_state.obs
@@ -205,16 +286,16 @@ def evaluate_program(
 
 
 def evaluate_genome(
-    genome: jnp.ndarray,
-    rnd_key: RNGKey,
-    initial_program_state: ProgramState,
-    env: Env,
-    encoding_function: Callable[[jnp.ndarray], Program],
-    episode_length: int = 1000,
-    inner_evaluator: Callable[
-        [Program, ProgramState, RNGKey, Env, int],
-        Tuple[float, Tuple[float, float, float]]
-    ] = evaluate_program
+        genome: jnp.ndarray,
+        rnd_key: RNGKey,
+        initial_program_state: ProgramState,
+        env: Env,
+        encoding_function: Callable[[jnp.ndarray], Program],
+        episode_length: int = 1000,
+        inner_evaluator: Callable[
+            [Program, ProgramState, RNGKey, Env, int],
+            Tuple[float, Tuple[float, float, float]]
+        ] = evaluate_program
 ) -> Tuple[float, Tuple[float, float, float]]:
     return inner_evaluator(
         encoding_function(genome),
@@ -226,13 +307,13 @@ def evaluate_genome(
 
 
 def evaluate_genome_n_times(
-    genome: jnp.ndarray,
-    rnd_key: RNGKey,
-    initial_program_state: ProgramState,
-    env: Env, n_times: int,
-    encoding_function: Callable[[jnp.ndarray], Program],
-    episode_length: int = 1000,
-    inner_evaluator: Callable = evaluate_program
+        genome: jnp.ndarray,
+        rnd_key: RNGKey,
+        initial_program_state: ProgramState,
+        env: Env, n_times: int,
+        encoding_function: Callable[[jnp.ndarray], Program],
+        episode_length: int = 1000,
+        inner_evaluator: Callable = evaluate_program
 ) -> Tuple[jnp.ndarray, Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]]:
     rnd_key, *sub_keys = jax.random.split(rnd_key, n_times + 1)
     partial_evaluate_genome = partial(evaluate_genome,
