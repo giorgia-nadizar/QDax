@@ -1,4 +1,5 @@
 # run PGA-ME first with few centroids with ant-omni
+# TODO clean up
 import functools
 import os
 import time
