@@ -166,7 +166,7 @@ map_elites = MAPElites(
 
 # Compute the centroids
 centroids = compute_euclidean_centroids(
-    grid_shape=tuple(10 for _ in range(env.behavior_descriptor_length)),
+    grid_shape=tuple(5 for _ in range(env.behavior_descriptor_length)),
     minval=min_bd,
     maxval=max_bd,
 )
