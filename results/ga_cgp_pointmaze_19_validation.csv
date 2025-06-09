@@ -1,3 +1,0 @@
-average_difference,max_difference,min_difference,average_relative_difference,min_relative_difference,max_relative_difference,max_validation_fitness,difference_of_maxs,relative_difference_of_maxs,relative_difference_baseline,seed,environment,sampling,repertoire_id,sensor_id
--inf,121.57523,-3.4028235e+38,0.6942952,-0.03657945,2.4311125,-36.53369,86.541756,1.730556,2.4311125,19,pointmaze,ga,1,0
--inf,110.71397,-3.4028235e+38,0.81588376,0.18531252,3.0751884,18.451935,31.55613,0.63102084,2.2139223,19,pointmaze,ga,1,1
