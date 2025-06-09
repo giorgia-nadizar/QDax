@@ -16,39 +16,39 @@ from qdax.core.neuroevolution.networks.networks import MLP
 from qdax.tasks.brax_envs import scoring_function_brax_envs as scoring_function
 from qdax.utils.metrics import CSVLogger, default_qd_metrics
 
-env_name = 'ant_omni'#@param['ant_uni', 'hopper_uni', 'walker_uni', 'halfcheetah_uni', 'humanoid_uni', 'ant_omni', 'humanoid_omni']
-seed = 0 #@param {type:"integer"}
+env_name = 'ant_omni'  # @param['ant_uni', 'hopper_uni', 'walker_uni', 'halfcheetah_uni', 'humanoid_uni', 'ant_omni', 'humanoid_omni']
+seed = 0  # @param {type:"integer"}
 file_path = f"pgame_{env_name}_{seed}"
-episode_length = 1000 #@param {type:"integer"}
-num_iterations = 1000 #@param {type:"integer"}
-policy_hidden_layer_sizes = (256, 256) #@param {type:"raw"}
-iso_sigma = 0.005 #@param {type:"number"}
-line_sigma = 0.05 #@param {type:"number"}
-num_init_cvt_samples = 50000 #@param {type:"integer"}
-num_centroids = 100 #@param {type:"integer"}
-min_bd = 0. #@param {type:"number"}
-max_bd = 1.0 #@param {type:"number"}
+episode_length = 1000  # @param {type:"integer"}
+num_iterations = 1000  # @param {type:"integer"}
+policy_hidden_layer_sizes = (256, 256)  # @param {type:"raw"}
+iso_sigma = 0.005  # @param {type:"number"}
+line_sigma = 0.05  # @param {type:"number"}
+# num_init_cvt_samples = 50000 #@param {type:"integer"}
+# num_centroids = 100 #@param {type:"integer"}
+n_descriptors_per_dimension = 5
+min_bd = -15.0  # @param {type:"number"}
+max_bd = 15.0  # @param {type:"number"}
+early_stopping = True
 
-proportion_mutation_ga = 0.5 #@param {type:"number"}
+proportion_mutation_ga = 0.5  # @param {type:"number"}
 
 # TD3 params
-env_batch_size = 100 #@param {type:"number"}
-replay_buffer_size = 1000000 #@param {type:"number"}
-critic_hidden_layer_size = (256, 256) #@param {type:"raw"}
-critic_learning_rate = 3e-4 #@param {type:"number"}
-greedy_learning_rate = 3e-4 #@param {type:"number"}
-policy_learning_rate = 1e-3 #@param {type:"number"}
-noise_clip = 0.5 #@param {type:"number"}
-policy_noise = 0.2 #@param {type:"number"}
-discount = 0.99 #@param {type:"number"}
-reward_scaling = 1.0 #@param {type:"number"}
-transitions_batch_size = 256 #@param {type:"number"}
-soft_tau_update = 0.005 #@param {type:"number"}
-num_critic_training_steps = 300 #@param {type:"number"}
-num_pg_training_steps = 100 #@param {type:"number"}
-policy_delay = 2 #@param {type:"number"}
-
-
+env_batch_size = 100  # @param {type:"number"}
+replay_buffer_size = 1000000  # @param {type:"number"}
+critic_hidden_layer_size = (256, 256)  # @param {type:"raw"}
+critic_learning_rate = 3e-4  # @param {type:"number"}
+greedy_learning_rate = 3e-4  # @param {type:"number"}
+policy_learning_rate = 1e-3  # @param {type:"number"}
+noise_clip = 0.5  # @param {type:"number"}
+policy_noise = 0.2  # @param {type:"number"}
+discount = 0.99  # @param {type:"number"}
+reward_scaling = 1.0  # @param {type:"number"}
+transitions_batch_size = 256  # @param {type:"number"}
+soft_tau_update = 0.005  # @param {type:"number"}
+num_critic_training_steps = 300  # @param {type:"number"}
+num_pg_training_steps = 100  # @param {type:"number"}
+policy_delay = 2  # @param {type:"number"}
 
 # Init environment
 env = environments.create(env_name, episode_length=episode_length)
@@ -105,6 +105,7 @@ def play_step_fn(
 
     return next_state, policy_params, random_key, transition
 
+
 # Prepare the scoring function
 bd_extraction_fn = environments.behavior_descriptor_extractor[env_name]
 scoring_fn = functools.partial(
@@ -156,7 +157,6 @@ pg_emitter = PGAMEEmitter(
     variation_fn=variation_fn,
 )
 
-
 # Instantiate MAP Elites
 map_elites = MAPElites(
     scoring_function=scoring_fn,
@@ -166,7 +166,7 @@ map_elites = MAPElites(
 
 # Compute the centroids
 centroids = compute_euclidean_centroids(
-    grid_shape=tuple(5 for _ in range(env.behavior_descriptor_length)),
+    grid_shape=tuple(n_descriptors_per_dimension for _ in range(env.behavior_descriptor_length)),
     minval=min_bd,
     maxval=max_bd,
 )
@@ -199,7 +199,7 @@ for i in range(num_loops):
     timelapse = time.time() - start_time
 
     # log metrics
-    logged_metrics = {"time": timelapse, "loop": 1+i, "iteration": 1 + i*log_period}
+    logged_metrics = {"time": timelapse, "loop": 1 + i, "iteration": 1 + i * log_period}
     for key, value in metrics.items():
         # take last value
         logged_metrics[key] = value[-1]
@@ -213,11 +213,14 @@ for i in range(num_loops):
     csv_logger.log(logged_metrics)
 
     print(f"Loop: {i + 1}, "
-              f"max_fitness: {logged_metrics['max_fitness']}, "
-              f"time: {logged_metrics['time']}, "
-              f"coverage: {logged_metrics['coverage']}")
+          f"max_fitness: {logged_metrics['max_fitness']}, "
+          f"time: {logged_metrics['time']}, "
+          f"coverage: {logged_metrics['coverage']}")
 
-repertoire_path = f"../results/{file_path }/"
+    if logged_metrics['coverage'] > 99.9 and early_stopping:
+        break
+
+repertoire_path = f"../results/{file_path}/"
 os.makedirs(repertoire_path, exist_ok=True)
 repertoire.save(path=repertoire_path)
 
