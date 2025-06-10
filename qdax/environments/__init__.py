@@ -15,7 +15,7 @@ from qdax.environments.init_state_wrapper import FixedInitialStateWrapper
 from qdax.environments.locomotion_wrappers import (
     FeetContactWrapper,
     NoForwardRewardWrapper,
-    XYPositionWrapper,
+    XYPositionWrapper, NoControlPenaltyWrapper,
 )
 from qdax.environments.pointmaze import PointMaze
 from qdax.environments.wrappers import CompletedEvalWrapper
@@ -87,6 +87,11 @@ _qdax_custom_envs = {
         "wrappers": [XYPositionWrapper, NoForwardRewardWrapper],
         "kwargs": [{"minval": [-30.0, -30.0], "maxval": [30.0, 30.0]}, {}],
     },
+    "crazy_ant_omni": {
+        "env": "ant",
+        "wrappers": [XYPositionWrapper, NoForwardRewardWrapper, NoControlPenaltyWrapper],
+        "kwargs": [{"minval": [-30.0, -30.0], "maxval": [30.0, 30.0]}, {}],
+    },
     "humanoid_omni": {
         "env": "humanoid",
         "wrappers": [XYPositionWrapper, NoForwardRewardWrapper],
@@ -117,16 +122,16 @@ _qdax_custom_envs = {
 
 
 def create(
-    env_name: str,
-    episode_length: int = 1000,
-    action_repeat: int = 1,
-    legacy_spring: bool = True,
-    auto_reset: bool = True,
-    batch_size: Optional[int] = None,
-    eval_metrics: bool = False,
-    fixed_init_state: bool = False,
-    qdax_wrappers_kwargs: Optional[List] = None,
-    **kwargs: Any,
+        env_name: str,
+        episode_length: int = 1000,
+        action_repeat: int = 1,
+        legacy_spring: bool = True,
+        auto_reset: bool = True,
+        batch_size: Optional[int] = None,
+        eval_metrics: bool = False,
+        fixed_init_state: bool = False,
+        qdax_wrappers_kwargs: Optional[List] = None,
+        **kwargs: Any,
 ) -> Union[brax.envs.env.Env, QDEnv]:
     """Creates an Env with a specified brax system.
     Please use namespace to avoid confusion between this function and
