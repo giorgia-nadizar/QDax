@@ -20,8 +20,8 @@ from qdax.utils.metrics import CSVLogger, default_qd_metrics
 env_name = 'ant_omni'  # @param['ant_uni', 'hopper_uni', 'walker_uni', 'halfcheetah_uni', 'humanoid_uni', 'ant_omni', 'humanoid_omni']
 seed = 0  # @param {type:"integer"}
 file_path = f"pgame_{env_name}_{seed}"
-episode_length = 1000  # @param {type:"integer"}
-num_iterations = 1000  # @param {type:"integer"}
+episode_length = 250  # @param {type:"integer"}
+num_iterations = 10_000  # @param {type:"integer"}
 policy_hidden_layer_sizes = (256, 256)  # @param {type:"raw"}
 iso_sigma = 0.005  # @param {type:"number"}
 line_sigma = 0.05  # @param {type:"number"}
