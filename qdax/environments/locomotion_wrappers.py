@@ -29,7 +29,7 @@ class QDSystem(System):
     """
 
     def __init__(
-        self, config: config_pb2.Config, resource_paths: Optional[Sequence[str]] = None
+            self, config: config_pb2.Config, resource_paths: Optional[Sequence[str]] = None
     ):
         super().__init__(config, resource_paths=resource_paths)
         self.aux_info = None
@@ -201,11 +201,11 @@ class XYPositionWrapper(QDEnv):
     """
 
     def __init__(
-        self,
-        env: Env,
-        env_name: str,
-        minval: Optional[List[float]] = None,
-        maxval: Optional[List[float]] = None,
+            self,
+            env: Env,
+            env_name: str,
+            minval: Optional[List[float]] = None,
+            maxval: Optional[List[float]] = None,
     ):
         if env_name not in COG_NAMES.keys():
             raise NotImplementedError(f"This wrapper does not support {env_name} yet.")
@@ -331,4 +331,52 @@ class NoForwardRewardWrapper(Wrapper):
         state = self.env.step(state, action)
         # update the reward (remove forward_reward)
         new_reward = state.reward - state.metrics[self._fd_reward_field]
+        return state.replace(reward=new_reward)  # type: ignore
+
+
+# name of the forward/velocity reward
+CONTROL_PENALTY_NAMES = {
+    "ant": "reward_ctrl",
+}
+
+
+class NoControlPenaltyWrapper(Wrapper):
+    """Wraps gym environments to remove control penalty.
+
+    Utilisation is simple: create an environment with Brax, pass
+    it to the wrapper with the name of the environment, and it will
+    work like before and will simply remove the control penalty term
+    of the reward.
+
+    Example :
+
+        from brax import envs
+        from brax import jumpy as jp
+
+        # choose in ["ant"]
+        ENV_NAME = "ant"
+        env = envs.create(env_name=ENV_NAME)
+        qd_env = NoControlPenaltyWrapper(env, ENV_NAME)
+
+        state = qd_env.reset(rng=jp.random_prngkey(seed=0))
+        for i in range(10):
+            action = jp.zeros((qd_env.action_size,))
+            state = qd_env.step(state, action)
+    """
+
+    def __init__(self, env: Env, env_name: str) -> None:
+        if env_name not in CONTROL_PENALTY_NAMES.keys():
+            raise NotImplementedError(f"This wrapper does not support {env_name} yet.")
+        super().__init__(env)
+        self._env_name = env_name
+        self._ctrl_reward_field = CONTROL_PENALTY_NAMES[env_name]
+
+    @property
+    def name(self) -> str:
+        return self._env_name
+
+    def step(self, state: State, action: jp.ndarray) -> State:
+        state = self.env.step(state, action)
+        # update the reward (remove control penalty)
+        new_reward = state.reward - state.metrics[self._ctrl_reward_field]
         return state.replace(reward=new_reward)  # type: ignore
