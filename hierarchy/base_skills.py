@@ -11,6 +11,7 @@ from qdax import environments
 from qdax.core.containers.mapelites_repertoire import compute_euclidean_centroids
 from qdax.core.emitters.mutation_operators import isoline_variation
 from qdax.core.emitters.pga_me_emitter import PGAMEConfig, PGAMEEmitter
+from qdax.core.emitters.standard_emitters import MixingEmitter
 from qdax.core.map_elites import MAPElites
 from qdax.core.neuroevolution.buffers.buffer import QDTransition
 from qdax.core.neuroevolution.networks.networks import MLP
@@ -19,7 +20,7 @@ from qdax.utils.metrics import CSVLogger, default_qd_metrics
 
 env_name = 'ant_omni'  # @param['ant_uni', 'hopper_uni', 'walker_uni', 'halfcheetah_uni', 'humanoid_uni', 'ant_omni', 'humanoid_omni']
 seed = 0  # @param {type:"integer"}
-file_path = f"pgame_{env_name}_{seed}"
+file_path = f"me_{env_name}_{seed}"
 episode_length = 250  # @param {type:"integer"}
 num_iterations = 10_000  # @param {type:"integer"}
 policy_hidden_layer_sizes = (256, 256)  # @param {type:"raw"}
@@ -31,6 +32,7 @@ n_descriptors_per_dimension = 5
 min_bd = -15.0  # @param {type:"number"}
 max_bd = 15.0  # @param {type:"number"}
 early_stopping = True
+batch_size = 100
 
 proportion_mutation_ga = 0.5  # @param {type:"number"}
 
@@ -126,42 +128,54 @@ metrics_function = functools.partial(
     qd_offset=reward_offset * episode_length,
 )
 
-# Define the PG-emitter config
-pga_emitter_config = PGAMEConfig(
-    env_batch_size=env_batch_size,
-    batch_size=transitions_batch_size,
-    proportion_mutation_ga=proportion_mutation_ga,
-    critic_hidden_layer_size=critic_hidden_layer_size,
-    critic_learning_rate=critic_learning_rate,
-    greedy_learning_rate=greedy_learning_rate,
-    policy_learning_rate=policy_learning_rate,
-    noise_clip=noise_clip,
-    policy_noise=policy_noise,
-    discount=discount,
-    reward_scaling=reward_scaling,
-    replay_buffer_size=replay_buffer_size,
-    soft_tau_update=soft_tau_update,
-    num_critic_training_steps=num_critic_training_steps,
-    num_pg_training_steps=num_pg_training_steps,
-    policy_delay=policy_delay,
-)
+# # Define the PG-emitter config
+# pga_emitter_config = PGAMEConfig(
+#     env_batch_size=env_batch_size,
+#     batch_size=transitions_batch_size,
+#     proportion_mutation_ga=proportion_mutation_ga,
+#     critic_hidden_layer_size=critic_hidden_layer_size,
+#     critic_learning_rate=critic_learning_rate,
+#     greedy_learning_rate=greedy_learning_rate,
+#     policy_learning_rate=policy_learning_rate,
+#     noise_clip=noise_clip,
+#     policy_noise=policy_noise,
+#     discount=discount,
+#     reward_scaling=reward_scaling,
+#     replay_buffer_size=replay_buffer_size,
+#     soft_tau_update=soft_tau_update,
+#     num_critic_training_steps=num_critic_training_steps,
+#     num_pg_training_steps=num_pg_training_steps,
+#     policy_delay=policy_delay,
+# )
+#
+# # Get the emitter
+# variation_fn = functools.partial(
+#     isoline_variation, iso_sigma=iso_sigma, line_sigma=line_sigma
+# )
+#
+# pg_emitter = PGAMEEmitter(
+#     config=pga_emitter_config,
+#     policy_network=policy_network,
+#     env=env,
+#     variation_fn=variation_fn,
+# )
 
-# Get the emitter
+# Define emitter
 variation_fn = functools.partial(
     isoline_variation, iso_sigma=iso_sigma, line_sigma=line_sigma
 )
-
-pg_emitter = PGAMEEmitter(
-    config=pga_emitter_config,
-    policy_network=policy_network,
-    env=env,
+mixing_emitter = MixingEmitter(
+    mutation_fn=None,
     variation_fn=variation_fn,
+    variation_percentage=1.0,
+    batch_size=batch_size
 )
 
 # Instantiate MAP Elites
 map_elites = MAPElites(
     scoring_function=scoring_fn,
-    emitter=pg_emitter,
+    # emitter=pg_emitter,
+    emitter=mixing_emitter,
     metrics_function=metrics_function,
 )
 
@@ -185,6 +199,9 @@ csv_logger = CSVLogger(
     header=["loop", "iteration", "qd_score", "max_fitness", "coverage", "time"]
 )
 all_metrics = {}
+
+repertoire_path = f"../results/{file_path}/"
+os.makedirs(repertoire_path, exist_ok=True)
 
 # main loop
 map_elites_scan_update = map_elites.scan_update
@@ -221,8 +238,9 @@ for i in range(num_loops):
     if logged_metrics['coverage'] > 99.9 and early_stopping:
         break
 
-repertoire_path = f"../results/{file_path}/"
-os.makedirs(repertoire_path, exist_ok=True)
+    if (num_loops + 1) % 5 == 0:
+        repertoire.save(path=repertoire_path)
+
 repertoire.save(path=repertoire_path)
 
 # Create the plots and the grid
