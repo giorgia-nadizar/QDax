@@ -238,7 +238,7 @@ for i in range(num_loops):
     if logged_metrics['coverage'] > 99.9 and early_stopping:
         break
 
-    if (num_loops + 1) % 5 == 0:
+    if (i + 1) % 5 == 0:
         repertoire.save(path=repertoire_path)
 
 repertoire.save(path=repertoire_path)
