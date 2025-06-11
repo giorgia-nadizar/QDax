@@ -29,6 +29,7 @@ reward_offset = {
     "antnotrap": 3.38,
     "antmaze": 40.32,
     "ant_omni": 3.0,
+    "crazy_ant_omni": 3.0,
     "humanoid_omni": 0.0,
     "ant_uni": 3.24,
     "humanoid_uni": 0.0,
