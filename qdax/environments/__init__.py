@@ -46,6 +46,7 @@ behavior_descriptor_extractor = {
     "antnotrap": get_final_xy_position,
     "antmaze": get_final_xy_position,
     "ant_omni": get_final_xy_position,
+    "crazy_ant_omni": get_final_xy_position,
     "humanoid_omni": get_final_xy_position,
     "ant_uni": get_feet_contact_proportion,
     "humanoid_uni": get_feet_contact_proportion,
