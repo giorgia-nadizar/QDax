@@ -6,6 +6,7 @@ from brax.envs import Env, State, Wrapper
 from brax.physics import config_pb2
 from brax.physics.base import QP, Info
 from brax.physics.system import System
+from jax import lax
 
 from qdax.environments.base_wrappers import QDEnv
 
@@ -383,3 +384,31 @@ class NoForwardRewardAndControlPenaltyWrapper(Wrapper):
         # update the reward (remove control penalty and forward_reward)
         new_reward = state.reward - state.metrics[self._fd_reward_field] - state.metrics[self._ctrl_reward_field]
         return state.replace(reward=new_reward)  # type: ignore
+
+
+class StepControlWrapper(Wrapper):
+    """Wraps gym environments to make the controller stepped.
+    """
+
+    def __init__(self, env: Env, env_name: str) -> None:
+        super().__init__(env)
+        self._env_name = env_name
+        self._step_time = 0
+        self._step_size = 5
+        self._previous_action = jnp.zeros(env.action_size, dtype=jnp.float32)
+
+    @property
+    def name(self) -> str:
+        return self._env_name
+
+    def step(self, state: State, action: jp.ndarray) -> State:
+        self._step_time += 1
+
+        # choose either the current action or the previous one
+        def _select_action(st: int, prev_act: jnp.ndarray, curr_act: jnp.ndarray) -> jnp.ndarray:
+            return lax.cond(st % self._step_size == 0, lambda _: curr_act, lambda _: prev_act, operand=None)
+
+        action = _select_action(self._step_time, action, self._previous_action)
+        self._previous_action = action
+
+        return self.env.step(state, action)  # type: ignore

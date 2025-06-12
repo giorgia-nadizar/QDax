@@ -15,7 +15,7 @@ from qdax.environments.init_state_wrapper import FixedInitialStateWrapper
 from qdax.environments.locomotion_wrappers import (
     FeetContactWrapper,
     NoForwardRewardWrapper,
-    XYPositionWrapper, NoForwardRewardAndControlPenaltyWrapper,
+    XYPositionWrapper, NoForwardRewardAndControlPenaltyWrapper, StepControlWrapper,
 )
 from qdax.environments.pointmaze import PointMaze
 from qdax.environments.wrappers import CompletedEvalWrapper
@@ -30,6 +30,7 @@ reward_offset = {
     "antmaze": 40.32,
     "ant_omni": 3.0,
     "crazy_ant_omni": 3.0,
+    "ant_omni_step": 3.0,
     "humanoid_omni": 0.0,
     "ant_uni": 3.24,
     "humanoid_uni": 0.0,
@@ -48,6 +49,7 @@ behavior_descriptor_extractor = {
     "antmaze": get_final_xy_position,
     "ant_omni": get_final_xy_position,
     "crazy_ant_omni": get_final_xy_position,
+    "ant_omni_step" : get_final_xy_position,
     "humanoid_omni": get_final_xy_position,
     "ant_uni": get_feet_contact_proportion,
     "humanoid_uni": get_feet_contact_proportion,
@@ -89,6 +91,11 @@ _qdax_custom_envs = {
         "wrappers": [XYPositionWrapper, NoForwardRewardWrapper],
         "kwargs": [{"minval": [-30.0, -30.0], "maxval": [30.0, 30.0]}, {}],
     },
+    "ant_omni_step": {
+            "env": "ant",
+            "wrappers": [XYPositionWrapper, NoForwardRewardWrapper, StepControlWrapper],
+            "kwargs": [{"minval": [-30.0, -30.0], "maxval": [30.0, 30.0]}, {}],
+        },
     "crazy_ant_omni": {
         "env": "ant",
         "wrappers": [XYPositionWrapper, NoForwardRewardAndControlPenaltyWrapper],
