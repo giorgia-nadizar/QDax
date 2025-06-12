@@ -15,7 +15,7 @@ from qdax.environments.init_state_wrapper import FixedInitialStateWrapper
 from qdax.environments.locomotion_wrappers import (
     FeetContactWrapper,
     NoForwardRewardWrapper,
-    XYPositionWrapper, NoControlPenaltyWrapper,
+    XYPositionWrapper, NoForwardRewardAndControlPenaltyWrapper,
 )
 from qdax.environments.pointmaze import PointMaze
 from qdax.environments.wrappers import CompletedEvalWrapper
@@ -91,7 +91,7 @@ _qdax_custom_envs = {
     },
     "crazy_ant_omni": {
         "env": "ant",
-        "wrappers": [XYPositionWrapper, NoForwardRewardWrapper, NoControlPenaltyWrapper],
+        "wrappers": [XYPositionWrapper, NoForwardRewardAndControlPenaltyWrapper],
         "kwargs": [{"minval": [-30.0, -30.0], "maxval": [30.0, 30.0]}, {}],
     },
     "humanoid_omni": {

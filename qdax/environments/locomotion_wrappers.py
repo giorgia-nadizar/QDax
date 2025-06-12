@@ -340,7 +340,7 @@ CONTROL_PENALTY_NAMES = {
 }
 
 
-class NoControlPenaltyWrapper(Wrapper):
+class NoForwardRewardAndControlPenaltyWrapper(Wrapper):
     """Wraps gym environments to remove control penalty.
 
     Utilisation is simple: create an environment with Brax, pass
@@ -367,8 +367,11 @@ class NoControlPenaltyWrapper(Wrapper):
     def __init__(self, env: Env, env_name: str) -> None:
         if env_name not in CONTROL_PENALTY_NAMES.keys():
             raise NotImplementedError(f"This wrapper does not support {env_name} yet.")
+        if env_name not in FORWARD_REWARD_NAMES.keys():
+            raise NotImplementedError(f"This wrapper does not support {env_name} yet.")
         super().__init__(env)
         self._env_name = env_name
+        self._fd_reward_field = FORWARD_REWARD_NAMES[env_name]
         self._ctrl_reward_field = CONTROL_PENALTY_NAMES[env_name]
 
     @property
@@ -377,6 +380,6 @@ class NoControlPenaltyWrapper(Wrapper):
 
     def step(self, state: State, action: jp.ndarray) -> State:
         state = self.env.step(state, action)
-        # update the reward (remove control penalty)
-        new_reward = state.reward - state.metrics[self._ctrl_reward_field]
+        # update the reward (remove control penalty and forward_reward)
+        new_reward = state.reward - state.metrics[self._fd_reward_field] - state.metrics[self._ctrl_reward_field]
         return state.replace(reward=new_reward)  # type: ignore
