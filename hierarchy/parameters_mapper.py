@@ -15,7 +15,7 @@ def map_output_to_nn_params(
 
     scaling_factor = jnp.max(repertoire.centroids)
     scaled_output = raw_output * scaling_factor
-    cell_indices = get_cells_indices(jnp.expand_dims(scaled_output, 0), repertoire.centroids).astype(int)
+    cell_indices = get_cells_indices(jnp.expand_dims(scaled_output, 0), repertoire.centroids).astype(int)[0]
     params = jax.tree_util.tree_map(
         lambda x: x[cell_indices],
         repertoire.genotypes
