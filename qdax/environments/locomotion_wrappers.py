@@ -412,3 +412,51 @@ class StepControlWrapper(Wrapper):
         self._previous_action = action
 
         return self.env.step(state, action)  # type: ignore
+
+
+class NoForwardRewardAndDistancePenaltyWrapper(Wrapper):
+    """Wraps gym environments to remove forward reward and add distance penalty.
+
+    Utilisation is simple: create an environment with Brax, pass
+    it to the wrapper with the name of the environment, and it will
+    work like before and will simply remove the control penalty term
+    of the reward.
+
+    Example :
+
+        from brax import envs
+        from brax import jumpy as jp
+
+        ENV_NAME = "ant"
+        env = envs.create(env_name=ENV_NAME)
+        qd_env = NoForwardRewardAndDistancePenaltyWrapper(env, ENV_NAME)
+
+        state = qd_env.reset(rng=jp.random_prngkey(seed=0))
+        for i in range(10):
+            action = jp.zeros((qd_env.action_size,))
+            state = qd_env.step(state, action)
+    """
+
+    def __init__(self, env: Env, env_name: str) -> None:
+        if env_name not in FORWARD_REWARD_NAMES.keys():
+            raise NotImplementedError(f"This wrapper does not support {env_name} yet.")
+        super().__init__(env)
+        self._env_name = env_name
+        self._fd_reward_field = FORWARD_REWARD_NAMES[env_name]
+        if hasattr(self.env, "sys"):
+            self._cog_idx = self.env.sys.body.index[COG_NAMES[env_name]]
+        else:
+            raise NotImplementedError(f"This wrapper does not support {env_name} yet.")
+
+    @property
+    def name(self) -> str:
+        return self._env_name
+
+    def step(self, state: State, action: jp.ndarray) -> State:
+        previous_position = state.qp.pos[self._cog_idx][:2]
+        state = self.env.step(state, action)
+        # update the reward (remove control penalty and forward_reward)
+        new_position = state.qp.pos[self._cog_idx][:2]
+        distance = jnp.linalg.norm(new_position - previous_position)
+        new_reward = state.reward - state.metrics[self._fd_reward_field] - distance
+        return state.replace(reward=new_reward)  # type: ignore
