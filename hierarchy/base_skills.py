@@ -18,7 +18,7 @@ from qdax.core.neuroevolution.networks.networks import MLP
 from qdax.tasks.brax_envs import scoring_function_brax_envs as scoring_function
 from qdax.utils.metrics import CSVLogger, default_qd_metrics
 
-env_name = 'ant_omni'  # @param['ant_uni', 'hopper_uni', 'walker_uni', 'halfcheetah_uni', 'humanoid_uni', 'ant_omni', 'humanoid_omni']
+env_name = 'ant_omni_direct'  # @param['ant_uni', 'hopper_uni', 'walker_uni', 'halfcheetah_uni', 'humanoid_uni', 'ant_omni', 'humanoid_omni']
 seed = 0  # @param {type:"integer"}
 file_path = f"me_{env_name}_{seed}"
 episode_length = 250  # @param {type:"integer"}
