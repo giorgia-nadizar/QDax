@@ -20,7 +20,6 @@ from qdax.utils.metrics import CSVLogger, default_qd_metrics
 
 env_name = 'ant_omni_direct'  # @param['ant_uni', 'hopper_uni', 'walker_uni', 'halfcheetah_uni', 'humanoid_uni', 'ant_omni', 'humanoid_omni']
 seed = 0  # @param {type:"integer"}
-file_path = f"me_{env_name}_{seed}"
 episode_length = 250  # @param {type:"integer"}
 num_iterations = 10_000  # @param {type:"integer"}
 policy_hidden_layer_sizes = (256, 256)  # @param {type:"raw"}
@@ -28,11 +27,15 @@ iso_sigma = 0.005  # @param {type:"number"}
 line_sigma = 0.05  # @param {type:"number"}
 # num_init_cvt_samples = 50000 #@param {type:"integer"}
 # num_centroids = 100 #@param {type:"integer"}
-n_descriptors_per_dimension = 5
+n_descriptors_per_dimension = 33
 min_bd = -15.0  # @param {type:"number"}
 max_bd = 15.0  # @param {type:"number"}
 early_stopping = True
 batch_size = 100
+
+file_path = f"me_{env_name}_{seed}"
+if n_descriptors_per_dimension > 5:
+    file_path += "_finegrid"
 
 proportion_mutation_ga = 0.5  # @param {type:"number"}
 
