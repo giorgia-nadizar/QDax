@@ -54,7 +54,7 @@ num_pg_training_steps = 100  # @param {type:"number"}
 policy_delay = 2  # @param {type:"number"}
 
 # Init environment
-env = environments.create(env_name, episode_length=episode_length)
+env = environments.create(env_name, episode_length=episode_length, use_contact_forces=False)
 
 # Init a random key
 random_key = jax.random.PRNGKey(seed)
