@@ -5,6 +5,33 @@ import jax.numpy as jnp
 from qdax.core.containers.mapelites_repertoire import MapElitesRepertoire, get_cells_indices
 
 
+def distill_archive(
+        repertoire: MapElitesRepertoire,
+        target_centroids: jnp.ndarray,
+        fitness_threshold: float = -jnp.inf,
+) -> MapElitesRepertoire:
+    ids_to_keep = jnp.where(repertoire.fitnesses > fitness_threshold)
+    processed_repertoire = MapElitesRepertoire.init(
+        genotypes=jax.tree_util.tree_map(
+            lambda x: x[ids_to_keep],
+            repertoire.genotypes
+        ),
+        fitnesses=repertoire.fitnesses[ids_to_keep],
+        descriptors=repertoire.descriptors[ids_to_keep],
+        centroids=repertoire.centroids[ids_to_keep],
+    )
+    distilled_ids = get_cells_indices(target_centroids, processed_repertoire.centroids)
+    return MapElitesRepertoire.init(
+        genotypes=jax.tree_util.tree_map(
+            lambda x: x[distilled_ids],
+            processed_repertoire.genotypes
+        ),
+        fitnesses=processed_repertoire.fitnesses[distilled_ids],
+        descriptors=processed_repertoire.descriptors[distilled_ids],
+        centroids=target_centroids
+    )
+
+
 def map_output_to_nn_params(
         raw_output: jnp.ndarray,
         repertoire: MapElitesRepertoire
