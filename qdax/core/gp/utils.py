@@ -18,9 +18,14 @@ def update_config(config: Dict, env: Env = None) -> Dict:
 
     config["n_functions"] = len(available_functions)
     config["n_constants"] = len(constants) if config.get("use_input_constants", True) else 0
-    config["n_in_env"] = env.observation_size
-    config["n_in"] = config["n_in_env"] + config["n_constants"]
-    config["n_out"] = env.action_size if not config.get("symmetry", False) else int(env.action_size / 2)
+    if config.get("hierarchy", False):
+        config["n_in_env"] = 2
+        config["n_in"] = config["n_in_env"] + config["n_constants"]
+        config["n_out"] = 2 if not config.get("symmetry", False) else int(env.action_size / 2)
+    else:
+        config["n_in_env"] = env.observation_size
+        config["n_in"] = config["n_in_env"] + config["n_constants"]
+        config["n_out"] = env.action_size if not config.get("symmetry", False) else int(env.action_size / 2)
 
     if config["solver"] == "cgp":
         config["buffer_size"] = config["n_in"] + config["n_nodes"]
