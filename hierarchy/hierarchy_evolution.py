@@ -152,6 +152,9 @@ def run_qd(config: Dict, target_path: str = "../results") -> None:
     # main loop
     map_elites_scan_update = map_elites.scan_update
     print(run_name)
+    repertoire_path = f"{target_path}/{run_name}/"
+    os.makedirs(repertoire_path, exist_ok=True)
+
     for i in range(num_loops):
         start_time = time.time()
         # main iterations
@@ -189,8 +192,9 @@ def run_qd(config: Dict, target_path: str = "../results") -> None:
               f"time: {logged_metrics['time']}, "
               f"coverage: {logged_metrics['coverage']}")
 
-    repertoire_path = f"{target_path}/{run_name}/"
-    os.makedirs(repertoire_path, exist_ok=True)
+        if i % 10 == 0:
+            repertoire.save(path=repertoire_path)
+
     repertoire.save(path=repertoire_path)
 
 
