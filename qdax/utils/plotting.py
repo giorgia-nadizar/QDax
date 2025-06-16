@@ -17,7 +17,7 @@ from qdax.core.containers.mome_repertoire import MOMERepertoire
 
 
 def get_voronoi_finite_polygons_2d(
-    centroids: np.ndarray, radius: Optional[float] = None
+        centroids: np.ndarray, radius: Optional[float] = None
 ) -> Tuple[List, np.ndarray]:
     """Reconstruct infinite voronoi regions in a 2D diagram to finite
     regions."""
@@ -35,7 +35,7 @@ def get_voronoi_finite_polygons_2d(
     # Construct a map containing all ridges for a given point
     all_ridges: Dict[jnp.ndarray, jnp.ndarray] = {}
     for (p1, p2), (v1, v2) in zip(
-        voronoi_diagram.ridge_points, voronoi_diagram.ridge_vertices
+            voronoi_diagram.ridge_points, voronoi_diagram.ridge_vertices
     ):
         all_ridges.setdefault(p1, []).append((p2, v1, v2))
         all_ridges.setdefault(p2, []).append((p1, v1, v2))
@@ -85,15 +85,15 @@ def get_voronoi_finite_polygons_2d(
 
 
 def plot_2d_map_elites_repertoire(
-    centroids: jnp.ndarray,
-    repertoire_fitnesses: jnp.ndarray,
-    minval: jnp.ndarray,
-    maxval: jnp.ndarray,
-    repertoire_descriptors: Optional[jnp.ndarray] = None,
-    ax: Optional[plt.Axes] = None,
-    vmin: Optional[float] = None,
-    vmax: Optional[float] = None,
-    axs_labels : Optional[List[str]] = None
+        centroids: jnp.ndarray,
+        repertoire_fitnesses: jnp.ndarray,
+        minval: jnp.ndarray,
+        maxval: jnp.ndarray,
+        repertoire_descriptors: Optional[jnp.ndarray] = None,
+        ax: Optional[plt.Axes] = None,
+        vmin: Optional[float] = None,
+        vmax: Optional[float] = None,
+        axs_labels: Optional[List[str]] = None
 ) -> Tuple[Optional[Figure], Axes]:
     """Plot a visual representation of a 2d map elites repertoire.
 
@@ -154,10 +154,10 @@ def plot_2d_map_elites_repertoire(
         fig, ax = plt.subplots(facecolor="white", edgecolor="white")
 
     assert (
-        len(np.array(minval).shape) < 2
+            len(np.array(minval).shape) < 2
     ), f"minval : {minval} should be float or couple of floats"
     assert (
-        len(np.array(maxval).shape) < 2
+            len(np.array(maxval).shape) < 2
     ), f"maxval : {maxval} should be float or couple of floats"
 
     if len(np.array(minval).shape) == 0 and len(np.array(maxval).shape) == 0:
@@ -227,7 +227,6 @@ def plot_2d_map_elites_repertoire_for_pgfplots(
         vmin: Optional[float] = None,
         vmax: Optional[float] = None,
 ) -> Tuple[float, float]:
-
     grid_empty = repertoire_fitnesses == -jnp.inf
     num_descriptors = centroids.shape[1]
     if num_descriptors != 2:
@@ -306,11 +305,11 @@ def plot_2d_map_elites_repertoire_for_pgfplots(
 
 
 def plot_map_elites_results(
-    env_steps: jnp.ndarray,
-    metrics: Dict,
-    repertoire: MapElitesRepertoire,
-    min_bd: jnp.ndarray,
-    max_bd: jnp.ndarray,
+        env_steps: jnp.ndarray,
+        metrics: Dict,
+        repertoire: MapElitesRepertoire,
+        min_bd: jnp.ndarray,
+        max_bd: jnp.ndarray,
 ) -> Tuple[Optional[Figure], Axes]:
     """Plots three usual QD metrics, namely the coverage, the maximum fitness
     and the QD-score, along the number of environment steps. This function also
@@ -378,7 +377,7 @@ def plot_map_elites_results(
 
 
 def multiline(
-    xs: Iterable, ys: Iterable, c: Iterable, ax: Optional[Axes] = None, **kwargs: Any
+        xs: Iterable, ys: Iterable, c: Iterable, ax: Optional[Axes] = None, **kwargs: Any
 ) -> LineCollection:
     """Plot lines with different colorings (with c a container of numbers mapped to
         colormap)
@@ -416,10 +415,10 @@ def multiline(
 
 
 def plot_skills_trajectory(
-    trajectories: jnp.ndarray,
-    skills: jnp.ndarray,
-    min_values: jnp.ndarray,
-    max_values: jnp.ndarray,
+        trajectories: jnp.ndarray,
+        skills: jnp.ndarray,
+        min_values: jnp.ndarray,
+        max_values: jnp.ndarray,
 ) -> Tuple[Figure, Axes]:
     """Plots skills trajectories on a single plot with
     different colors to recognize the skills.
@@ -467,13 +466,13 @@ def plot_skills_trajectory(
 
 
 def plot_mome_pareto_fronts(
-    centroids: jnp.ndarray,
-    repertoire: MOMERepertoire,
-    maxval: float,
-    minval: float,
-    axes: Optional[plt.Axes] = None,
-    color_style: Optional[str] = "hsv",
-    with_global: Optional[bool] = False,
+        centroids: jnp.ndarray,
+        repertoire: MOMERepertoire,
+        maxval: float,
+        minval: float,
+        axes: Optional[plt.Axes] = None,
+        color_style: Optional[str] = "hsv",
+        with_global: Optional[bool] = False,
 ) -> plt.Axes:
     """Plot the pareto fronts from all cells of the mome repertoire.
 
@@ -600,10 +599,10 @@ def vector_to_rgb(angle: float, absolute: float) -> Any:
 
 
 def plot_global_pareto_front(
-    pareto_front: jnp.ndarray,
-    ax: Optional[plt.Axes] = None,
-    label: Optional[str] = None,
-    color: Optional[str] = None,
+        pareto_front: jnp.ndarray,
+        ax: Optional[plt.Axes] = None,
+        label: Optional[str] = None,
+        color: Optional[str] = None,
 ) -> Tuple[Optional[Figure], plt.Axes]:
     """Plots the global Pareto Front.
 
@@ -628,7 +627,7 @@ def plot_global_pareto_front(
 
 
 def _get_projection_in_1d(
-    integer_coordinates: jnp.ndarray, bases_tuple: Tuple[int, ...]
+        integer_coordinates: jnp.ndarray, bases_tuple: Tuple[int, ...]
 ) -> int:
     """Converts an integer vector into a single integer,
     given tuple of bases to consider for conversion.
@@ -662,7 +661,7 @@ def _get_projection_in_1d(
 
 
 def _get_projection_in_2d(
-    integer_coordinates: jnp.ndarray, bases: Tuple[int, ...]
+        integer_coordinates: jnp.ndarray, bases: Tuple[int, ...]
 ) -> Tuple[int, int]:
     """Projects an integer vector into a pair of integers,
     (given tuple of bases to consider for conversion).
@@ -686,13 +685,13 @@ def _get_projection_in_2d(
 
 
 def plot_multidimensional_map_elites_grid(
-    repertoire: MapElitesRepertoire,
-    minval: jnp.ndarray,
-    maxval: jnp.ndarray,
-    grid_shape: Tuple[int, ...],
-    ax: Optional[plt.Axes] = None,
-    vmin: Optional[float] = None,
-    vmax: Optional[float] = None,
+        repertoire: MapElitesRepertoire,
+        minval: jnp.ndarray,
+        maxval: jnp.ndarray,
+        grid_shape: Tuple[int, ...],
+        ax: Optional[plt.Axes] = None,
+        vmin: Optional[float] = None,
+        vmax: Optional[float] = None,
 ) -> Tuple[Optional[Figure], Axes]:
     """Plot a visual 2D representation of a multidimensional MAP-Elites repertoire
     (where the dimensionality of descriptors can be greater than 2).
@@ -719,7 +718,7 @@ def plot_multidimensional_map_elites_grid(
 
     if isinstance(grid_shape, tuple):
         assert (
-            len(grid_shape) == num_descriptors
+                len(grid_shape) == num_descriptors
         ), "grid_shape should have the same length as num_descriptors"
     else:
         raise ValueError("resolution should be a tuple")
@@ -810,7 +809,7 @@ def plot_multidimensional_map_elites_grid(
     ax.set_aspect("equal")
 
     def _get_ticks_positions(
-        total_size_grid_axis: int, step_ticks_on_axis: int
+            total_size_grid_axis: int, step_ticks_on_axis: int
     ) -> jnp.ndarray:
         """
         Get the positions of the ticks on the grid axis.
@@ -869,7 +868,7 @@ def plot_multidimensional_map_elites_grid(
         ax.grid(which="major", alpha=1.0, color="#000000", linewidth=2.5)
 
     def _get_positions_labels(
-        _minval: float, _maxval: float, _number_ticks: int, _step_labels_ticks: int
+            _minval: float, _maxval: float, _number_ticks: int, _step_labels_ticks: int
     ) -> List[str]:
         positions = jnp.linspace(_minval, _maxval, num=_number_ticks)
 
@@ -906,3 +905,22 @@ def plot_multidimensional_map_elites_grid(
         )
 
     return fig, ax
+
+
+def plot_ant_maze(
+        ax: plt.Axes,
+):
+    ax.plot([20, 20], [-4, 19.5], 'k-', lw=5)
+    ax.plot([10.5, 19.5], [7.5, 7.5], 'k-', lw=5)
+    ax.plot([10, 10], [20.25, 39.75], 'k-', lw=5)
+    ax.plot(0, 0, 'ro', markersize=8)
+    ax.plot(35, 0, 'go', markersize=8)
+
+
+def plot_ant_trap(
+        ax: plt.Axes,
+):
+    ax.plot([12, -2.5], [12, 2.5], 'k-', lw=5)
+    ax.plot([6.5, 12.5], [3, 3], 'k-', lw=5)
+    ax.plot([6.5, 12.5], [-3, -3], 'k-', lw=5)
+    ax.plot(0, 0, 'ro', markersize=8)
