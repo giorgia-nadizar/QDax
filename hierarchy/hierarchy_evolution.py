@@ -34,7 +34,8 @@ def _log_occupation(loop: int, iteration: int, occupation_dict: Dict, occupation
 
 
 def run_qd(config: Dict, target_path: str = "../results") -> None:
-    run_name = f"hme_{config['env_name']}_{config['seed']}"
+    extra_info = "_short" if config["episode_length"] < 1000 else ""
+    run_name = f"hme_{config['env_name']}{extra_info}_{config['seed']}"
 
     env = environments.create(config["env_name"], episode_length=config["episode_length"], use_contact_forces=False)
 
@@ -210,7 +211,7 @@ if __name__ == '__main__':
 
     print(f"Total runs: {len(seeds)}")
     env_name = "anttrap"
-    episode_length = 1000
+    episode_length = 250
     for sd in seeds:
         env_cfg = {
             "n_nodes": 50,
