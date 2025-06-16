@@ -2,6 +2,7 @@ import os
 import os
 import sys
 import time
+from copy import deepcopy
 from datetime import datetime
 from functools import partial
 from typing import Dict
@@ -139,7 +140,9 @@ def run_qd(config: Dict, target_path: str = "../results") -> None:
     repertoire_path = f"{target_path}/{run_name}/"
     os.makedirs(repertoire_path, exist_ok=True)
     with open(f"{repertoire_path}/config.yaml", "w") as file:
-        yaml.dump(config, file)
+        save_config = deepcopy(config)
+        save_config["target_centroids"] = []
+        yaml.dump(save_config, file)
 
     # Launch MAP-Elites iterations
     log_period = 10
