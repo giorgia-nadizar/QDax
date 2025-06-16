@@ -209,8 +209,8 @@ if __name__ == '__main__':
     seeds = range(1)
 
     print(f"Total runs: {len(seeds)}")
-    env_name = "antmaze"
-    episode_length = 100
+    env_name = "anttrap"
+    episode_length = 1000
     for sd in seeds:
         env_cfg = {
             "n_nodes": 50,
