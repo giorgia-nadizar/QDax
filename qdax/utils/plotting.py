@@ -920,7 +920,7 @@ def plot_ant_maze(
 def plot_ant_trap(
         ax: plt.Axes,
 ):
-    ax.plot([12, -2.5], [12, 2.5], 'k-', lw=5)
+    ax.plot([12, 12], [-2.5, 2.5], 'k-', lw=5)
     ax.plot([6.5, 12.5], [3, 3], 'k-', lw=5)
     ax.plot([6.5, 12.5], [-3, -3], 'k-', lw=5)
     ax.plot(0, 0, 'ro', markersize=8)
