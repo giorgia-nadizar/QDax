@@ -8,6 +8,7 @@ from typing import Dict
 
 import jax
 import jax.numpy as jnp
+import yaml
 from jax._src.flatten_util import ravel_pytree
 
 from hierarchy.parameters_mapper import map_output_to_nn_params, distill_archive
@@ -134,6 +135,12 @@ def run_qd(config: Dict, target_path: str = "../results") -> None:
     # Compute initial repertoire and emitter state
     repertoire, emitter_state, random_key = map_elites.init(population, centroids, random_key)
 
+    print(run_name)
+    repertoire_path = f"{target_path}/{run_name}/"
+    os.makedirs(repertoire_path, exist_ok=True)
+    with open(f"{repertoire_path}/config.yaml", "w") as file:
+        yaml.dump(config, file)
+
     # Launch MAP-Elites iterations
     log_period = 10
     num_loops = int(config["n_iterations"] / log_period)
@@ -152,9 +159,6 @@ def run_qd(config: Dict, target_path: str = "../results") -> None:
 
     # main loop
     map_elites_scan_update = map_elites.scan_update
-    print(run_name)
-    repertoire_path = f"{target_path}/{run_name}/"
-    os.makedirs(repertoire_path, exist_ok=True)
 
     for i in range(num_loops):
         start_time = time.time()
