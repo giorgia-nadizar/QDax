@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Dict
 
 from jax import jit
 from jax.tree_util import register_pytree_node_class
@@ -58,11 +58,26 @@ function_set_boolean = {
 }
 
 
-@jit
-def numeric_function_switch(idx, *operands):
-    return switch(idx, list(function_set_numeric.values()), *operands)
+@register_pytree_node_class
+class FunctionSet:
 
+    def __init__(self, functions_dict: Dict[str, JaxFunction] = function_set_numeric) -> None:
+        self.function_set = functions_dict
 
-@jit
-def boolean_function_switch(idx, *operands):
-    return switch(idx, list(function_set_boolean.values()), *operands)
+        @jit
+        def function_switch(idx, *operands):
+            return switch(idx, list(function_set_numeric.values()), *operands)
+
+        self.apply = function_switch
+
+    def __len__(self):
+        return len(self.function_set)
+
+    def tree_flatten(self):
+        children = ()
+        aux_data = {"function_set": self.function_set}
+        return children, aux_data
+
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        return cls(aux_data["function_set"])
