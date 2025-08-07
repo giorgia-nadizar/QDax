@@ -49,7 +49,8 @@ class CGP:
               cgp_genome_params: Union[FrozenVariableDict, Dict[str, Any]],
               obs: jnp.ndarray,
               ) -> jnp.ndarray:
-        # define function to update buffer in a certain position: get inputs from the x and y connections, then apply the function
+        # define function to update buffer in a certain position: get inputs from the x and y connections
+        # then apply the function
         @jit
         def _update_buffer(buffer_idx: int,
                            carry: Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]) \
