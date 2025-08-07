@@ -1,13 +1,13 @@
 from typing import Callable, Union, Dict, Any, Tuple
 
 import jax.numpy as jnp
-from chex import PRNGKey
 from flax import struct
-from flax.typing import RNGSequences, FrozenVariableDict
+from flax.typing import FrozenVariableDict
 from jax import random, jit
 from jax._src.lax.control_flow import fori_loop
 
 from qdax.core.graphs.functions import FunctionSet
+from qdax.custom_types import RNGKey
 
 
 @struct.dataclass
@@ -20,7 +20,7 @@ class CGP:
     outputs_wrapper: Callable = jnp.tanh
     fixed_outputs: bool = False
 
-    def init(self, rngs: Union[PRNGKey, RNGSequences], *args, ) -> Union[FrozenVariableDict, Dict[str, Any]]:
+    def init(self, rngs: RNGKey, *args, ) -> Union[FrozenVariableDict, Dict[str, Any]]:
         # determine bounds for genes for each section of the genome
         in_mask = jnp.arange(self.n_inputs + len(self.input_constants),
                              self.n_inputs + len(self.input_constants) + self.n_nodes)
