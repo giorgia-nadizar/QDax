@@ -51,7 +51,7 @@ def test_genome_bounds() -> None:
 
 
 def test_known_genome_execution() -> None:
-    """Test that a CGP genomes behave as expected.
+    """Test that a CGP genome behaves as expected.
     The chosen genome takes as outputs:
     - input 0
     - constant 0
@@ -84,3 +84,25 @@ def test_known_genome_execution() -> None:
             )
             expected_outputs = jnp.tanh(jnp.asarray([x, cgp.input_constants[0], x + y, (x + y) * y]))
             pytest.assume(jnp.allclose(outputs, expected_outputs, rtol=1e-5, atol=1e-8))
+
+
+def test_active_graph() -> None:
+    """Test that a CGP genomes has the correct active nodes.
+        """
+    # define genome structure
+    cgp = CGP(
+        n_inputs=2,
+        n_outputs=3,
+        n_nodes=5
+    )
+    cgp_genome = {
+        "params": {
+            "x_connections_genes": jnp.asarray([0, 0, 4, 0, 0]),
+            "y_connections_genes": jnp.asarray([1, 1, 5, 1, 1]),
+            "functions_genes": jnp.asarray([0, 0, 4, 0, 0]),
+            "output_connections_genes": jnp.asarray([0, 2, 4, 6])
+        }
+    }
+    expected_active_nodes = jnp.asarray([1, 0, 1, 0, 0])
+    active_nodes = cgp.compute_active_nodes(cgp_genome)
+    pytest.assume(jnp.array_equal(active_nodes, expected_active_nodes))
