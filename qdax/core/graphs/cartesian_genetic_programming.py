@@ -47,7 +47,6 @@ class CGP:
     outputs_wrapper: Callable = jnp.tanh
     fixed_outputs: bool = False
 
-
     def init(
             self,
             rngs: RNGKey,
@@ -103,13 +102,14 @@ class CGP:
             sequentially and stored in a buffer, starting from the provided inputs and constants.
 
             Args:
-                cgp_genome_params: dictionary of CGP genome parameters
-                obs: problem inputs/observation
+                cgp_genome_params: dictionary of CGP genome parameters.
+                obs: problem inputs/observation.
 
             Returns:
                 Array of processed outputs after evaluating the genome and applying
                 the output wrapper.
             """
+
         # define function to update buffer in a certain position: get inputs from the x and y connections
         # then apply the function
         @jit
@@ -145,14 +145,26 @@ def _mutate_subgenome(
         key: RNGKey,
         p_mut: float
 ) -> jnp.ndarray:
+    """Performs elementwise mutation of a genome section.
+
+        For each gene, a random number in [0, 1) is drawn. If the number is
+        greater than `p_mut`, the gene is kept from the original subgenome (`x1`);
+        otherwise, it is replaced with the corresponding gene from the donor
+        subgenome (`x2`).
+
+        Args:
+            x1: Original subgenome array.
+            x2: Donor subgenome array (must be the same shape as `x1`).
+            key: JAX PRNG key used to generate mutation probabilities.
+            p_mut: Probability of replacing each gene with the donor's value.
+
+        Returns:
+            The mutated subgenome array.
+        """
     mutation_probs = random.uniform(key=key, shape=x1.shape)
     return jnp.where(mutation_probs > p_mut, x1, x2).astype(int)
 
 
-# define the mutation as a form of crossover with a new individual, where new genes are taken with low probability
-# this implementation ensures that all genes are correct (i.e., in the correct range)
-# the implementation is compatible with standard emitters after using partial to fix the CGP and the mutation probs
-# mutation probabilities can be passed either individually or in a dictionary
 def cgp_mutation(
         genotype: FrozenVariableDict,
         rnd_key: RNGKey,
@@ -162,6 +174,41 @@ def cgp_mutation(
         p_mut_outputs: float = 0.3,
         mutation_probabilities: Optional[Dict[str, float]] = None
 ) -> Union[FrozenVariableDict, Dict[str, Any]]:
+    """Mutates a CGP genome using int-flip mutation.
+
+        This mutation is implemented as a form of crossover with a newly
+        generated "donor" genome: for each gene, the value is taken from the
+        donor with a low probability, otherwise kept from the original genome.
+        This ensures that all mutated genes remain valid (i.e., within the
+        correct index ranges for their respective genome section).
+
+        The function is compatible with standard emitters when wrapped using
+        `functools.partial` to pre-bind the `cgp` instance and mutation
+        probabilities.
+
+        Mutation probabilities can be specified either via individual arguments
+        (`p_mut_inputs`, `p_mut_functions`, `p_mut_outputs`) or by passing a
+        dictionary to `mutation_probabilities` with keys `"inputs"`, `"functions"`,
+        and `"outputs"`. When both are provided, the dictionary values override
+        the individual arguments.
+
+        Args:
+            genotype: the CGP genome parameters to mutate.
+            rnd_key: JAX PRNG key for randomness.
+            cgp: CGP instance used to initialize the donor genome.
+            p_mut_inputs: probability of mutating each input connection gene
+                (ignored if overridden via `mutation_probabilities`).
+            p_mut_functions: probability of mutating each function gene
+                (ignored if overridden via `mutation_probabilities`).
+            p_mut_outputs: probability of mutating each output connection gene
+                (ignored if overridden via `mutation_probabilities`).
+            mutation_probabilities: optional dictionary mapping `"inputs"`,
+                `"functions"`, and `"outputs"` to their mutation probabilities.
+
+        Returns:
+            The mutated genome.
+        """
+
     # extract mutation probabilities if passed through a dictionary
     mutation_probabilities = mutation_probabilities or {}
     p_mut_inputs = mutation_probabilities.get("inputs", p_mut_inputs)
