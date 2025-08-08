@@ -120,25 +120,26 @@ class CGP:
         # then apply the function
         @jit
         def _update_buffer(buffer_idx: int,
-                           carry: Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]) \
-                -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
-            x_genes, y_genes, f_genes, buff = carry
-            n_in = len(buff) - len(x_genes)
+                           carry: Tuple[Genotype, jnp.ndarray]
+                           ) -> Tuple[Genotype, jnp.ndarray]:
+            cgp_genes, buff = carry
+            n_in = len(buff) - len(cgp_genes["params"]["x_connections_genes"])
             idx = buffer_idx - n_in
-            f_idx = f_genes.at[idx].get()
-            x_arg = buff.at[x_genes.at[idx].get()].get()
-            y_arg = buff.at[y_genes.at[idx].get()].get()
+            f_idx = cgp_genes["params"]["functions_genes"].at[idx].get()
+            x_arg = buff.at[cgp_genes["params"]["x_connections_genes"].at[idx].get()].get()
+            y_arg = buff.at[cgp_genes["params"]["y_connections_genes"].at[idx].get()].get()
             f_computed = self.function_set.apply(f_idx, x_arg, y_arg)
             buff = buff.at[buffer_idx].set(f_computed)
-            return x_genes, y_genes, f_genes, buff
+            return cgp_genes, buff
 
         # initialize the buffer with inputs and constants and use zeros as placeholders for computation
         buffer = jnp.concatenate([obs, self.input_constants, jnp.zeros(self.n_nodes)])
         # apply the buffer update function for all positions of the buffer to update it
-        _, _, _, buffer = fori_loop(self.n_inputs + len(self.input_constants), len(buffer), _update_buffer,
-                                    (cgp_genome_params["params"]["x_connections_genes"],
-                                     cgp_genome_params["params"]["y_connections_genes"],
-                                     cgp_genome_params["params"]["functions_genes"], buffer))
+        _, buffer = fori_loop(
+            lower=self.n_inputs + len(self.input_constants),
+            upper=len(buffer),
+            body_fun=_update_buffer,
+            init_val=(cgp_genome_params, buffer))
         outputs = jnp.take(buffer, cgp_genome_params["params"]["output_connections_genes"])
 
         # apply wrapper to constraint the outputs in the correct domain
