@@ -28,8 +28,8 @@ class CGP:
 
     Args:
         n_inputs: number of input values provided to the graph (excluding constants).
-        n_nodes: number of computational nodes in the graph.
         n_outputs: number of outputs produced by the CGP individual.
+        n_nodes: number of computational nodes in the graph.
         function_set: set of allowed functions that nodes in the graph can use.
         input_constants: array of constant values that can be used as inputs
             alongside the external inputs.
@@ -39,9 +39,9 @@ class CGP:
             (last nodes in the sequence) or can be evolved.
     """
     n_inputs: int
-    n_nodes: int
     n_outputs: int
-    function_set: FunctionSet
+    n_nodes: int = 50
+    function_set: FunctionSet = FunctionSet()
     input_constants: jnp.ndarray = jnp.asarray([0.1, 1.0])
     outputs_wrapper: Callable = jnp.tanh
     fixed_outputs: bool = False
