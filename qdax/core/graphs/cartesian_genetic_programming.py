@@ -8,7 +8,7 @@ from jax import random, jit
 from jax.lax import fori_loop
 
 from qdax.core.graphs.functions import FunctionSet
-from qdax.custom_types import RNGKey, Genotype
+from qdax.custom_types import RNGKey, Genotype, Mask
 
 
 @struct.dataclass
@@ -144,6 +144,51 @@ class CGP:
 
         # apply wrapper to constraint the outputs in the correct domain
         return self.outputs_wrapper(outputs)
+
+    def compute_active_nodes(
+            self,
+            cgp_genome_params: Genotype,
+    ) -> Mask:
+        """
+        Compute the mask of active (expressed) nodes in a CGP genome.
+        This method identifies which nodes are active by starting from the output
+        connections and recursively marking all nodes that contribute to them.
+
+        Args:
+            cgp_genome_params: the CGP genome parameters.
+
+        Returns:
+            Mask: a binary mask (1 = active, 0 = inactive) of length `n_nodes`,
+            indicating which nodes are used in producing the final outputs.
+        """
+
+        active_buffer = jnp.zeros(self.buffer_size)
+        active_buffer = active_buffer.at[cgp_genome_params["params"]["output_connections_genes"]].set(1)
+
+        # define function to mark if a buffer is active in a certain position
+        def _compute_active_nodes(
+                opposite_idx: int,
+                carry: Tuple[Genotype, jnp.ndarray],
+        ) -> Tuple[Genotype, jnp.ndarray]:
+            cgp_genes, active = carry
+            n_in = len(active) - len(cgp_genes["params"]["x_connections_genes"])
+            idx = len(active) - opposite_idx - 1
+            x_idx = cgp_genes["params"]["x_connections_genes"].at[idx - n_in].get().astype(int)
+            y_idx = cgp_genes["params"]["y_connections_genes"].at[idx - n_in].get().astype(int)
+            arity = self.function_set.arities.at[cgp_genes["params"]["functions_genes"][idx - n_in]].get()
+            active = active.at[x_idx].set(jnp.logical_or(active.at[x_idx].get(), active.at[idx].get()))
+            active = active.at[y_idx].set(jnp.logical_or(
+                active.at[y_idx].get(), jnp.logical_and(active.at[idx].get(), arity == 2)
+            ))
+            return cgp_genes, active
+
+        _, active_buffer = fori_loop(
+            lower=0,
+            upper=self.n_nodes,
+            body_fun=_compute_active_nodes,
+            init_val=(cgp_genome_params, active_buffer),
+        )
+        return active_buffer[-self.n_nodes:].astype(int)
 
 
 def _mutate_subgenome(
