@@ -96,6 +96,20 @@ class CGP:
               cgp_genome_params: Union[FrozenVariableDict, Dict[str, Any]],
               obs: jnp.ndarray,
               ) -> jnp.ndarray:
+        """Evaluates a CGP genome on a given input observation.
+
+            This method interprets the integer-encoded genome to construct and
+            execute the corresponding computational graph. Node values are computed
+            sequentially and stored in a buffer, starting from the provided inputs and constants.
+
+            Args:
+                cgp_genome_params: dictionary of CGP genome parameters
+                obs: problem inputs/observation
+
+            Returns:
+                Array of processed outputs after evaluating the genome and applying
+                the output wrapper.
+            """
         # define function to update buffer in a certain position: get inputs from the x and y connections
         # then apply the function
         @jit
