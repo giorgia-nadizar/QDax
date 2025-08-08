@@ -1,3 +1,5 @@
+"""Core components of Cartesian Genetic Programming for graph evolution."""
+
 from typing import Callable, Union, Dict, Any, Tuple, Optional
 
 import jax.numpy as jnp
