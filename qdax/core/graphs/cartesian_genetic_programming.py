@@ -1,15 +1,14 @@
 """Core components of Cartesian Genetic Programming (CGP) for graph evolution."""
 
-from typing import Callable, Union, Dict, Any, Tuple, Optional
+from typing import Callable, Dict, Tuple, Optional
 
 import jax.numpy as jnp
 from flax import struct
-from flax.typing import FrozenVariableDict
 from jax import random, jit
 from jax.lax import fori_loop
 
 from qdax.core.graphs.functions import FunctionSet
-from qdax.custom_types import RNGKey
+from qdax.custom_types import RNGKey, Genotype
 
 
 @struct.dataclass
@@ -51,7 +50,7 @@ class CGP:
             self,
             rngs: RNGKey,
             *args,
-    ) -> Union[FrozenVariableDict, Dict[str, Any]]:
+    ) -> Genotype:
         """Initializes a random CGP genome.
 
             Args:
@@ -92,7 +91,7 @@ class CGP:
         }
 
     def apply(self,
-              cgp_genome_params: Union[FrozenVariableDict, Dict[str, Any]],
+              cgp_genome_params: Genotype,
               obs: jnp.ndarray,
               ) -> jnp.ndarray:
         """Evaluates a CGP genome on a given input observation.
@@ -166,14 +165,14 @@ def _mutate_subgenome(
 
 
 def cgp_mutation(
-        genotype: FrozenVariableDict,
+        genotype: Genotype,
         rnd_key: RNGKey,
         cgp: CGP,
         p_mut_inputs: float = 0.1,
         p_mut_functions: float = 0.1,
         p_mut_outputs: float = 0.3,
         mutation_probabilities: Optional[Dict[str, float]] = None
-) -> Union[FrozenVariableDict, Dict[str, Any]]:
+) -> Genotype:
     """Mutates a CGP genome using int-flip mutation.
 
         This mutation is implemented as a form of crossover with a newly
