@@ -62,7 +62,7 @@ def test_known_genome_execution() -> None:
     # define genome structure
     cgp = CGP(
         n_inputs=2,
-        n_outputs=3,
+        n_outputs=4,
         n_nodes=5
     )
     cgp_genome = {
@@ -92,7 +92,7 @@ def test_active_graph() -> None:
     # define genome structure
     cgp = CGP(
         n_inputs=2,
-        n_outputs=3,
+        n_outputs=4,
         n_nodes=5
     )
     cgp_genome = {
@@ -124,3 +124,19 @@ def test_active_graph_jit() -> None:
 
     # Check it runs
     jax.vmap(cgp.compute_active_nodes)(init_cgp_genomes)
+
+def test_readable_expression() -> None:
+    cgp = CGP(
+        n_inputs=2,
+        n_outputs=4,
+        n_nodes=5
+    )
+    cgp_genome = {
+        "params": {
+            "x_connections_genes": jnp.asarray([0, 0, 4, 0, 0]),
+            "y_connections_genes": jnp.asarray([1, 1, 5, 1, 1]),
+            "functions_genes": jnp.asarray([0, 0, 4, 0, 0]),
+            "output_connections_genes": jnp.asarray([0, 2, 4, 6])
+        }
+    }
+    print(cgp.get_readable_expression(cgp_genome))
