@@ -117,9 +117,10 @@ class FunctionSet:
                  functions_dict: Optional[Dict[str, JaxFunction]] = None
                  ) -> None:
         self.function_set = functions_dict or function_set_numeric
+        self.arities = jnp.asarray([f.arity for f in self.function_set.values()])
 
         @jit
-        def function_switch(idx, *operands):
+        def function_switch(idx: int, *operands):
             return switch(idx, list(self.function_set.values()), *operands)
 
         self.apply = function_switch
