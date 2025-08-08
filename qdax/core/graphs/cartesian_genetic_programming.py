@@ -28,7 +28,9 @@ class CGP:
 
     Args:
         n_inputs: number of input values provided to the graph (excluding constants).
+            Typically set to the environment’s observation size, e.g., `env.observation_size`.
         n_outputs: number of outputs produced by the CGP individual.
+            Typically set to the environment’s action size, e.g., `env.action_size`.
         n_nodes: number of computational nodes in the graph.
         function_set: set of allowed functions that nodes in the graph can use.
         input_constants: array of constant values that can be used as inputs
