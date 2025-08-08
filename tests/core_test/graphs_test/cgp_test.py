@@ -106,3 +106,21 @@ def test_active_graph() -> None:
     expected_active_nodes = jnp.asarray([1, 0, 1, 0, 0])
     active_nodes = cgp.compute_active_nodes(cgp_genome)
     pytest.assume(jnp.array_equal(active_nodes, expected_active_nodes))
+
+
+def test_active_graph_jit() -> None:
+    """Test that the computation of the active graph is jittable.
+    """
+    key = jax.random.key(42)
+    cgp = CGP(
+        n_inputs=3,
+        n_outputs=2,
+    )
+
+    # Init the population of CGP genomes
+    key, subkey = jax.random.split(key)
+    keys = jax.random.split(subkey, num=10)
+    init_cgp_genomes = jax.vmap(cgp.init)(keys)
+
+    # Check it runs
+    jax.vmap(cgp.compute_active_nodes)(init_cgp_genomes)
