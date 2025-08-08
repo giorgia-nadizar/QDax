@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from typing import Callable, Dict, Optional
-
-from jax import jit
-from jax.tree_util import register_pytree_node_class
 from functools import partial
+from typing import Callable, Dict, Optional, Union
 
 import jax.numpy as jnp
+from jax import jit, Array
 from jax.lax import cond, switch
+from jax.tree_util import register_pytree_node_class
 
 
 @register_pytree_node_class
@@ -37,7 +36,11 @@ class JaxFunction:
             tree_unflatten(): Reconstructs the function from metadata.
         """
 
-    def __init__(self, op: Callable[[float, float], float], arity: int, symbol: str = None) -> None:
+    def __init__(self,
+                 op: Callable[[Union[Array, float], Union[Array, float]], Union[Array, float]],
+                 arity: int,
+                 symbol: str = None
+                 ) -> None:
         self.operator = jit(op)
         self.arity = arity
         self.symbol = symbol if symbol is not None else op.__name__
