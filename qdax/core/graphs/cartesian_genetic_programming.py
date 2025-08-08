@@ -1,4 +1,4 @@
-"""Core components of Cartesian Genetic Programming for graph evolution."""
+"""Core components of Cartesian Genetic Programming (CGP) for graph evolution."""
 
 from typing import Callable, Union, Dict, Any, Tuple, Optional
 
@@ -14,6 +14,31 @@ from qdax.custom_types import RNGKey
 
 @struct.dataclass
 class CGP:
+    """Cartesian Genetic Programming (CGP) representation.
+
+    The CGP encoding uses a fixed-length integer genome to describe a
+    directed acyclic graph of computational nodes arranged in a single row
+    (1D grid). Each node has up to two inputs, chosen from problem inputs,
+    constant values, or outputs of earlier nodes, and applies a function
+    from the provided function set.
+
+    Problem outputs are taken from specific nodes in the graph. These
+    connections can be evolved or fixed to the last nodes.
+    An optional output wrapper function (e.g., `tanh`) can be applied
+    to constrain the final outputs to a desired range.
+
+    Args:
+        n_inputs: number of input values provided to the graph (excluding constants).
+        n_nodes: number of computational nodes in the graph.
+        n_outputs: number of outputs produced by the CGP individual.
+        function_set: set of allowed functions that nodes in the graph can use.
+        input_constants: array of constant values that can be used as inputs
+            alongside the external inputs.
+        outputs_wrapper: function applied to the outputs of the CGP graph+
+            before returning them to bound them in a certain range.
+        fixed_outputs: whether the output nodes are fixed in their connections
+            (last nodes in the sequence) or can be evolved.
+    """
     n_inputs: int
     n_nodes: int
     n_outputs: int
