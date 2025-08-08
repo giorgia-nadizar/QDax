@@ -1,10 +1,10 @@
-from typing import Callable, Union, Dict, Any, Tuple
+from typing import Callable, Union, Dict, Any, Tuple, Optional
 
 import jax.numpy as jnp
 from flax import struct
 from flax.typing import FrozenVariableDict
 from jax import random, jit
-from jax._src.lax.control_flow import fori_loop
+from jax.lax import fori_loop
 
 from qdax.core.graphs.functions import FunctionSet
 from qdax.custom_types import RNGKey
@@ -76,3 +76,59 @@ class CGP:
 
         # apply wrapper to constraint the outputs in the correct domain
         return self.outputs_wrapper(outputs)
+
+
+def _mutate_subgenome(
+        x1: jnp.ndarray,
+        x2: jnp.ndarray,
+        key: RNGKey,
+        p_mut: float
+) -> jnp.ndarray:
+    mutation_probs = random.uniform(key=key, shape=x1.shape)
+    return jnp.where(mutation_probs > p_mut, x1, x2).astype(int)
+
+
+# define the mutation as a form of crossover with a new individual, where new genes are taken with low probability
+# this implementation ensures that all genes are correct (i.e., in the correct range)
+# the implementation is compatible with standard emitters after using partial to fix the CGP and the mutation probs
+# mutation probabilities can be passed either individually or in a dictionary
+def cgp_mutation(
+        genotype: FrozenVariableDict,
+        rnd_key: RNGKey,
+        cgp: CGP,
+        p_mut_inputs: float = 0.1,
+        p_mut_functions: float = 0.1,
+        p_mut_outputs: float = 0.3,
+        mutation_probabilities: Optional[Dict[str, float]] = None
+) -> Union[FrozenVariableDict, Dict[str, Any]]:
+    # extract mutation probabilities if passed through a dictionary
+    mutation_probabilities = mutation_probabilities or {}
+    p_mut_inputs = mutation_probabilities.get("inputs", p_mut_inputs)
+    p_mut_functions = mutation_probabilities.get("functions", p_mut_functions)
+    p_mut_outputs = mutation_probabilities.get("outputs", p_mut_outputs)
+
+    new_key, x_key, y_key, f_key, out_key = random.split(rnd_key, 5)
+    # generate the donor genotype -> only few genes from this will be used
+    donor_genotype = cgp.init(new_key)
+
+    # mutate each sub-part of the genome
+    return {
+        "params": {
+            "x_connections_genes": _mutate_subgenome(genotype["params"]["x_connections_genes"],
+                                                     donor_genotype["params"]["x_connections_genes"],
+                                                     x_key,
+                                                     p_mut_inputs),
+            "y_connections_genes": _mutate_subgenome(genotype["params"]["y_connections_genes"],
+                                                     donor_genotype["params"]["y_connections_genes"],
+                                                     y_key,
+                                                     p_mut_inputs),
+            "functions_genes": _mutate_subgenome(genotype["params"]["functions_genes"],
+                                                 donor_genotype["params"]["functions_genes"],
+                                                 f_key,
+                                                 p_mut_functions),
+            "output_connections_genes": _mutate_subgenome(genotype["params"]["output_connections_genes"],
+                                                          donor_genotype["params"]["output_connections_genes"],
+                                                          out_key,
+                                                          p_mut_outputs),
+        }
+    }
