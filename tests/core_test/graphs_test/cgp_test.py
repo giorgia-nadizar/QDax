@@ -50,3 +50,37 @@ def test_genome_bounds() -> None:
     pytest.assume(jnp.all(mutated_cgp_genome["params"]["output_connections_genes"] < outputs_bound))
 
 
+def test_known_genome_execution() -> None:
+    """Test that a CGP genomes behave as expected.
+    The chosen genome takes as outputs:
+    - input 0
+    - constant 0
+    - input 0 + input 1
+    - (input 0 + input 1) * input 1
+    All outputs are wrapped by the tanh function.
+        """
+    # define genome structure
+    cgp = CGP(
+        n_inputs=2,
+        n_outputs=3,
+        n_nodes=5
+    )
+    cgp_genome = {
+        "params": {
+            "x_connections_genes": jnp.asarray([0, 0, 4, 0, 0]),
+            "y_connections_genes": jnp.ones(cgp.n_nodes, dtype=jnp.int32),
+            "functions_genes": jnp.asarray([0, 0, 2, 0, 0]),
+            "output_connections_genes": jnp.asarray([0, 2, 4, 6])
+        }
+    }
+
+    input_test_range = jnp.arange(start=-1, stop=1, step=.2)
+    for x in input_test_range:
+        for y in input_test_range:
+            inputs = jnp.asarray([x, y])
+            outputs = cgp.apply(
+                cgp_genome,
+                inputs,
+            )
+            expected_outputs = jnp.tanh(jnp.asarray([x, cgp.input_constants[0], x + y, (x + y) * y]))
+            pytest.assume(jnp.allclose(outputs, expected_outputs, rtol=1e-5, atol=1e-8))
