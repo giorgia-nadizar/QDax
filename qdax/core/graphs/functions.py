@@ -116,7 +116,7 @@ class FunctionSet:
 
         @jit
         def function_switch(idx, *operands):
-            return switch(idx, list(function_set_numeric.values()), *operands)
+            return switch(idx, list(self.function_set.values()), *operands)
 
         self.apply = function_switch
 
