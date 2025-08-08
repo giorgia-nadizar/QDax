@@ -130,7 +130,7 @@ class CGP:
         # initialize the buffer with inputs and constants and use zeros as placeholders for computation
         buffer = jnp.concatenate([obs, self.input_constants, jnp.zeros(self.n_nodes)])
         # apply the buffer update function for all positions of the buffer to update it
-        _, _, _, buffer = fori_loop(self.n_inputs, len(buffer), _update_buffer,
+        _, _, _, buffer = fori_loop(self.n_inputs + len(self.input_constants), len(buffer), _update_buffer,
                                     (cgp_genome_params["params"]["x_connections_genes"],
                                      cgp_genome_params["params"]["y_connections_genes"],
                                      cgp_genome_params["params"]["functions_genes"], buffer))
