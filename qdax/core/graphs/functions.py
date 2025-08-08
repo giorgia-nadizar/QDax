@@ -65,6 +65,7 @@ class JaxFunction:
 
 # Predefined dictionary of numeric JaxFunction instances covering common mathematical operations
 function_set_numeric = {
+    "plus": JaxFunction(lambda x, y: jnp.add(x, y), 2, "+"),
     "minus": JaxFunction(lambda x, y: jnp.add(x, -y), 2, "-"),
     "times": JaxFunction(lambda x, y: jnp.multiply(x, y), 2, "*"),
     "prot_div": JaxFunction(lambda x, y: cond(y == 0, jit(lambda a, b: 1.0), jnp.divide, x, y), 2, "/"),
