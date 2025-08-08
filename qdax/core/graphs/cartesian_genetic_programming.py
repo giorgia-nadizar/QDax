@@ -48,6 +48,11 @@ class CGP:
     outputs_wrapper: Callable = jnp.tanh
     fixed_outputs: bool = False
 
+    @property
+    def buffer_size(self) -> int:
+        """Size of the computation buffer used by CGP."""
+        return self.n_inputs + len(self.input_constants) + self.n_nodes
+
     def init(
             self,
             rngs: RNGKey,
