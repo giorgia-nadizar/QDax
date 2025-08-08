@@ -190,6 +190,53 @@ class CGP:
         )
         return active_buffer[-self.n_nodes:].astype(int)
 
+    def get_readable_expression(
+            self,
+            cgp_genome_params: Genotype) -> str:
+        """Generate a human-readable symbolic representation of a CGP genome.
+
+            Unary functions are printed in the form:
+                f(x)
+            Binary functions are printed in the form:
+                (x op y)
+            where `op` is the function symbol (e.g., `+`, `*`, `sin`).
+
+            Args:
+                cgp_genome_params: CGP genotype.
+
+            Returns:
+                str: A multi-line string, with one line per output, showing the
+                symbolic expression computed for each CGP output node.
+
+            Example:
+                o0 = (i0+i1)
+                o1 = sin(i2)
+            """
+        n_in = self.n_inputs + len(self.input_constants)
+        targets = []
+
+        def _replace_cgp_expression(
+                cgp_genes: Genotype,
+                idx: int) -> str:
+            if idx < self.n_inputs:
+                return f"i{idx}"
+            elif idx < n_in:
+                return str(self.input_constants[idx - self.n_inputs])
+            functions = list(self.function_set.function_set.values())
+            gene_idx = idx - n_in
+            function = functions[cgp_genes["params"]["functions_genes"][gene_idx]]
+            if function.arity == 1:
+                return (f"{function.symbol}("
+                        f"{_replace_cgp_expression(cgp_genes, int(cgp_genes['params']['x_connections_genes'][gene_idx]))})")
+            else:
+                return f"({_replace_cgp_expression(cgp_genes, int(cgp_genes['params']['x_connections_genes'][gene_idx]))}" \
+                       f"{function.symbol}{_replace_cgp_expression(cgp_genes, int(cgp_genes['params']['y_connections_genes'][gene_idx]))})"
+
+        for i, out in enumerate(cgp_genome_params["params"]["output_connections_genes"]):
+            targets.append(f"o{i} = tanh({_replace_cgp_expression(cgp_genome_params, out)})")
+
+        return "\n".join(targets)
+
 
 def _mutate_subgenome(
         x1: jnp.ndarray,
