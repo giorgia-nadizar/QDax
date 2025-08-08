@@ -47,7 +47,27 @@ class CGP:
     outputs_wrapper: Callable = jnp.tanh
     fixed_outputs: bool = False
 
-    def init(self, rngs: RNGKey, *args, ) -> Union[FrozenVariableDict, Dict[str, Any]]:
+
+    def init(
+            self,
+            rngs: RNGKey,
+            *args,
+    ) -> Union[FrozenVariableDict, Dict[str, Any]]:
+        """Initializes a random CGP genome.
+
+            Args:
+                rngs: JAX PRNG key used to generate random genome values.
+                *args: Unused additional arguments for API compatibility.
+
+            Returns:
+                A dictionary containing the `"params"` key with genome sections as
+                integer JAX arrays:
+                    - `"x_connections_genes"`
+                    - `"y_connections_genes"`
+                    - `"functions_genes"`
+                    - `"output_connections_genes"`
+                The encoding is inspired by that of MLPs.
+            """
         # determine bounds for genes for each section of the genome
         in_mask = jnp.arange(self.n_inputs + len(self.input_constants),
                              self.n_inputs + len(self.input_constants) + self.n_nodes)
