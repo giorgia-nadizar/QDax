@@ -13,6 +13,32 @@ from qdax.custom_types import RNGKey, Genotype
 @struct.dataclass
 class LGP:
     """Linear Genetic Programming (LGP) representation.
+
+    The LGP encoding uses a sequence of instructions (program lines) that
+    operate on a set of registers to compute outputs. Each instruction
+    selects one or more source operands (from input registers, constant
+    registers, computation registers, or output registers), applies a function
+    from the provided function set, and stores the result in a target register.
+
+    The program executes sequentially, line by line, with later instructions
+    potentially overwriting the results of earlier ones. The outputs of the
+    program are taken from the last registers (i.e., output registers after execution.
+    An optional output wrapper function (e.g., `tanh`) can be applied to
+    constrain the final outputs to a desired range.
+
+    Args:
+        n_inputs: number of input values provided to the program (excluding constants).
+            Typically set to the environment’s observation size, e.g., `env.observation_size`.
+        n_outputs: number of outputs produced by the LGP individual.
+            Typically set to the environment’s action size, e.g., `env.action_size`.
+        n_computation_registers: number of internal registers available for intermediate
+            computations. These registers are overwritten during program execution. Additional
+            n_outputs_registers are also available for computation.
+        n_program_lines: number of instructions in the program.
+        function_set: set of allowed functions that instructions in the program can use.
+        input_constants: array of constant values that can be used as additional inputs.
+        outputs_wrapper: function applied to the outputs of the LGP program
+            before returning them to bound them in a certain range.
     """
     n_inputs: int
     n_outputs: int
