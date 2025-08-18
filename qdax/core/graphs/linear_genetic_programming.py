@@ -52,7 +52,12 @@ class LGP:
     @property
     def n_registers(self) -> int:
         """Total number of registers used by LGP."""
-        return self.n_inputs + len(self.input_constants) + self.n_computation_registers + self.n_outputs
+        return self.n_inputs + len(self.input_constants) + self.n_assignable_registers
+
+    @property
+    def n_assignable_registers(self) -> int:
+        """Number of registers that can be assigned by LGP."""
+        return self.n_computation_registers + self.n_outputs
 
     def init(
             self,
@@ -75,7 +80,7 @@ class LGP:
                 The encoding is inspired by that of MLPs.
             """
         # determine bounds for genes for each section of the genome
-        lhs_mask = (self.n_computation_registers + self.n_outputs) * jnp.ones(self.n_program_lines)
+        lhs_mask = self.n_assignable_registers * jnp.ones(self.n_program_lines)
         lhs_offset = (self.n_inputs + len(self.input_constants)) * jnp.ones(self.n_program_lines)
         f_mask = len(self.function_set) * jnp.ones(self.n_program_lines)
         rhs_mask = self.n_registers * jnp.ones(self.n_program_lines)
@@ -134,7 +139,7 @@ class LGP:
 
         # initialize the registers with inputs and constants and zeros for remaining registers
         registers = jnp.concatenate(
-            [obs, self.input_constants, jnp.zeros(self.n_computation_registers + self.n_outputs)])
+            [obs, self.input_constants, jnp.zeros(self.n_assignable_registers)])
         # apply the registers update function for all program lines
         _, registers = fori_loop(
             lower=0,
