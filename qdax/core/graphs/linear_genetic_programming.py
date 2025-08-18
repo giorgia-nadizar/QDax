@@ -1,10 +1,11 @@
 """Core components of Linear Genetic Programming (LGP) for graph evolution."""
 
-from typing import Callable
+from typing import Callable, Tuple
 
 import jax.numpy as jnp
 from flax import struct
-from jax import random
+from jax import random, jit
+from jax.lax import fori_loop
 
 from qdax.core.graphs.functions import FunctionSet
 from qdax.custom_types import RNGKey, Genotype
@@ -95,3 +96,52 @@ class LGP:
                 "functions_genes": jnp.floor(random_f * f_mask).astype(int)
             }
         }
+
+    def apply(self,
+              lgp_genome_params: Genotype,
+              obs: jnp.ndarray,
+              ) -> jnp.ndarray:
+        """Evaluates a LGP genome on a given input observation.
+
+            This method interprets the integer-encoded genome to construct and
+            execute the corresponding program. Program lines results are computed
+            sequentially and stored in the registers, starting from the provided inputs and constants.
+
+            Args:
+                lgp_genome_params: dictionary of LGP genome parameters.
+                obs: problem inputs/observation.
+
+            Returns:
+                Array of processed outputs after evaluating the genome and applying
+                the output wrapper.
+            """
+
+        # define function to update the registers following the instructions of a 
+        # given program line: get inputs from the x and y connections, then apply the function
+        # and store the result in the target register
+        @jit
+        def _update_registers(line_idx: int,
+                              carry: Tuple[Genotype, jnp.ndarray]
+                              ) -> Tuple[Genotype, jnp.ndarray]:
+            lgp_genes, regs = carry
+            target_register_idx = lgp_genes["params"]["target_registers_genes"].at[line_idx].get()
+            f_idx = lgp_genes["params"]["functions_genes"].at[line_idx].get()
+            x_arg = regs.at[lgp_genes["params"]["x_connections_genes"].at[line_idx].get()].get()
+            y_arg = regs.at[lgp_genes["params"]["y_connections_genes"].at[line_idx].get()].get()
+            f_computed = self.function_set.apply(f_idx, x_arg, y_arg)
+            regs = regs.at[target_register_idx].set(f_computed)
+            return lgp_genes, regs
+
+        # initialize the registers with inputs and constants and zeros for remaining registers
+        registers = jnp.concatenate(
+            [obs, self.input_constants, jnp.zeros(self.n_computation_registers + self.n_outputs)])
+        # apply the registers update function for all program lines
+        _, registers = fori_loop(
+            lower=0,
+            upper=self.n_program_lines,
+            body_fun=_update_registers,
+            init_val=(lgp_genome_params, registers))
+        outputs = registers[-self.n_outputs:]
+
+        # apply wrapper to constraint the outputs in the correct domain
+        return self.outputs_wrapper(outputs)
