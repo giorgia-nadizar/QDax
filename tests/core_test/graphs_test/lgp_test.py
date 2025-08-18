@@ -2,7 +2,7 @@ import jax
 import jax.numpy as jnp
 import pytest
 
-from qdax.core.graphs.linear_genetic_programming import LGP
+from qdax.core.graphs.linear_genetic_programming import LGP, lgp_mutation
 
 
 def test_genome_bounds() -> None:
@@ -23,14 +23,29 @@ def test_genome_bounds() -> None:
 
     # init genome
     key, init_key = jax.random.split(key)
-    initial_cgp_genome = lgp.init(init_key)
+    initial_lgp_genome = lgp.init(init_key)
 
     # check if bounds are respected at initialization
-    pytest.assume(jnp.all(initial_cgp_genome["params"]["target_registers_genes"] >= lhs_lower_bound))
-    pytest.assume(jnp.all(initial_cgp_genome["params"]["target_registers_genes"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(initial_cgp_genome["params"]["x_connections_genes"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(initial_cgp_genome["params"]["y_connections_genes"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(initial_cgp_genome["params"]["functions_genes"] < functions_bound))
+    pytest.assume(jnp.all(initial_lgp_genome["params"]["target_registers_genes"] >= lhs_lower_bound))
+    pytest.assume(jnp.all(initial_lgp_genome["params"]["target_registers_genes"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(initial_lgp_genome["params"]["x_connections_genes"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(initial_lgp_genome["params"]["y_connections_genes"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(initial_lgp_genome["params"]["functions_genes"] < functions_bound))
+
+    # mutate genome
+    key, mut_key = jax.random.split(key)
+    mutated_lgp_genome = lgp_mutation(
+        genotype=initial_lgp_genome,
+        rnd_key=mut_key,
+        lgp=lgp
+    )
+
+    # check if bounds are respected after mutation
+    pytest.assume(jnp.all(mutated_lgp_genome["params"]["target_registers_genes"] >= lhs_lower_bound))
+    pytest.assume(jnp.all(mutated_lgp_genome["params"]["target_registers_genes"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(mutated_lgp_genome["params"]["x_connections_genes"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(mutated_lgp_genome["params"]["y_connections_genes"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(mutated_lgp_genome["params"]["functions_genes"] < functions_bound))
 
 
 def test_known_genome_execution() -> None:

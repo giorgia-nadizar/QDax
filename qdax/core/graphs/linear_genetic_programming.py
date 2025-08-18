@@ -1,12 +1,13 @@
 """Core components of Linear Genetic Programming (LGP) for graph evolution."""
 
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Optional, Dict
 
 import jax.numpy as jnp
 from flax import struct
 from jax import random, jit
 from jax.lax import fori_loop
 
+from qdax.core.graphs.cartesian_genetic_programming import _mutate_subgenome
 from qdax.core.graphs.functions import FunctionSet
 from qdax.custom_types import RNGKey, Genotype
 
@@ -150,3 +151,80 @@ class LGP:
 
         # apply wrapper to constraint the outputs in the correct domain
         return self.outputs_wrapper(outputs)
+
+
+def lgp_mutation(
+        genotype: Genotype,
+        rnd_key: RNGKey,
+        lgp: LGP,
+        p_mut_targets: float = 0.3,
+        p_mut_inputs: float = 0.1,
+        p_mut_functions: float = 0.1,
+        mutation_probabilities: Optional[Dict[str, float]] = None
+) -> Genotype:
+    """Mutates a LGP genome using int-flip mutation.
+
+        This mutation is implemented as a form of crossover with a newly
+        generated "donor" genome: for each gene, the value is taken from the
+        donor with a low probability, otherwise kept from the original genome.
+        This ensures that all mutated genes remain valid (i.e., within the
+        correct index ranges for their respective genome section).
+
+        The function is compatible with standard emitters when wrapped using
+        `functools.partial` to pre-bind the `lgp` instance and mutation
+        probabilities.
+
+        Mutation probabilities can be specified either via individual arguments
+        (`p_mut_assignment_targets`, `p_mut_inputs`, `p_mut_functions`) or by passing a
+        dictionary to `mutation_probabilities` with keys `"inputs"`, `"functions"`,
+        and `"targets"`. When both are provided, the dictionary values override
+        the individual arguments.
+
+        Args:
+            genotype: the CGP genome parameters to mutate.
+            rnd_key: JAX PRNG key for randomness.
+            lgp: LGP instance used to initialize the donor genome.
+            p_mut_targets: probability of mutating each target assignment gene
+                (ignored if overridden via `mutation_probabilities`).
+            p_mut_inputs: probability of mutating each input connection gene
+                (ignored if overridden via `mutation_probabilities`).
+            p_mut_functions: probability of mutating each function gene
+                (ignored if overridden via `mutation_probabilities`).
+            mutation_probabilities: optional dictionary mapping `"inputs"`,
+                `"functions"`, and `"targets"` to their mutation probabilities.
+
+        Returns:
+            The mutated genome.
+        """
+
+    # extract mutation probabilities if passed through a dictionary
+    mutation_probabilities = mutation_probabilities or {}
+    p_mut_targets = mutation_probabilities.get("target", p_mut_targets)
+    p_mut_inputs = mutation_probabilities.get("inputs", p_mut_inputs)
+    p_mut_functions = mutation_probabilities.get("functions", p_mut_functions)
+
+    new_key, targets_key, x_key, y_key, f_key = random.split(rnd_key, 5)
+    # generate the donor genotype -> only few genes from this will be used
+    donor_genotype = lgp.init(new_key)
+
+    # mutate each sub-part of the genome
+    return {
+        "params": {
+            "target_registers_genes": _mutate_subgenome(genotype["params"]["target_registers_genes"],
+                                                     donor_genotype["params"]["target_registers_genes"],
+                                                     targets_key,
+                                                     p_mut_targets),
+            "x_connections_genes": _mutate_subgenome(genotype["params"]["x_connections_genes"],
+                                                     donor_genotype["params"]["x_connections_genes"],
+                                                     x_key,
+                                                     p_mut_inputs),
+            "y_connections_genes": _mutate_subgenome(genotype["params"]["y_connections_genes"],
+                                                     donor_genotype["params"]["y_connections_genes"],
+                                                     y_key,
+                                                     p_mut_inputs),
+            "functions_genes": _mutate_subgenome(genotype["params"]["functions_genes"],
+                                                 donor_genotype["params"]["functions_genes"],
+                                                 f_key,
+                                                 p_mut_functions),
+        }
+    }
