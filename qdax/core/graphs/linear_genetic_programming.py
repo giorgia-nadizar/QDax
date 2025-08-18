@@ -7,7 +7,7 @@ from flax import struct
 from jax import random, jit
 from jax.lax import fori_loop
 
-from qdax.core.graphs.cartesian_genetic_programming import _mutate_subgenome
+from qdax.core.graphs.utils import _mutate_subgenome
 from qdax.core.graphs.functions import FunctionSet
 from qdax.custom_types import RNGKey, Genotype
 
