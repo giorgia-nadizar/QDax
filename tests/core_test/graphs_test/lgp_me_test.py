@@ -5,21 +5,18 @@ import pytest
 
 import qdax.tasks.brax.v1 as environments
 from qdax.core.containers.mapelites_repertoire import compute_cvt_centroids
-from qdax.core.emitters.mutation_operators import isoline_variation
 from qdax.core.emitters.standard_emitters import MixingEmitter
-from qdax.core.graphs.cartesian_genetic_programming import CGP, cgp_mutation
+from qdax.core.graphs.linear_genetic_programming import LGP, lgp_mutation, lgp_crossover
 from qdax.core.map_elites import MAPElites
 from qdax.core.neuroevolution.buffers.buffer import QDTransition
-from qdax.core.neuroevolution.networks.networks import MLP
 import jax.numpy as jnp
 from qdax.tasks.brax.v1.env_creators import scoring_function_brax_envs as scoring_function
 from qdax.utils.metrics import default_qd_metrics
 
 
-def test_cgp_with_me() -> None:
-    """Test that CGP can be used with ME and is jit safe.
+def test_lgp_with_me() -> None:
+    """Test that LGP can be used with ME and is jit safe.
         """
-
 
     batch_size = 10
     env_name = 'walker2d_uni'
@@ -38,8 +35,8 @@ def test_cgp_with_me() -> None:
     # Init a random key
     key = jax.random.key(seed)
 
-    # Init the CGP policy graph with default values
-    policy_graph = CGP(
+    # Init the LGP policy graph with default values
+    policy_graph = LGP(
         n_inputs=env.observation_size,
         n_outputs=env.action_size,
     )
@@ -47,11 +44,10 @@ def test_cgp_with_me() -> None:
     # Init the population of CGP genomes
     key, subkey = jax.random.split(key)
     keys = jax.random.split(subkey, num=batch_size)
-    init_cgp_genomes = jax.vmap(policy_graph.init)(keys)
-
+    init_lgp_genomes = jax.vmap(policy_graph.init)(keys)
 
     # Define the play step fn for CGP to interact with the env
-    def cgp_play_step_fn(
+    def lgp_play_step_fn(
             env_state,
             policy_params,
             key,
@@ -80,11 +76,11 @@ def test_cgp_with_me() -> None:
 
     # Prepare the scoring function
     descriptor_extraction_fn = environments.descriptor_extractor[env_name]
-    scoring_fn_cgp = functools.partial(
+    scoring_fn_lgp = functools.partial(
         scoring_function,
         episode_length=episode_length,
         play_reset_fn=reset_fn,
-        play_step_fn=cgp_play_step_fn,
+        play_step_fn=lgp_play_step_fn,
         descriptor_extractor=descriptor_extraction_fn,
     )
 
@@ -98,19 +94,22 @@ def test_cgp_with_me() -> None:
     )
 
     # Define emitter
-    cgp_variation_fn = functools.partial(
-        cgp_mutation, cgp=policy_graph  # , mutation_probabilities={"inputs" : .2}
+    lgp_mutation_fn = functools.partial(
+        lgp_mutation, lgp=policy_graph
+    )
+    lgp_crossover_fn = functools.partial(
+        lgp_crossover, lgp=policy_graph
     )
     mixing_emitter = MixingEmitter(
-        mutation_fn=cgp_variation_fn,
-        variation_fn=None,
-        variation_percentage=0.0,   # note: CGP works with mutation only
+        mutation_fn=lgp_mutation_fn,
+        variation_fn=lgp_crossover_fn,
+        variation_percentage=0.5,
         batch_size=batch_size
     )
 
     # Instantiate MAP-Elites
     map_elites = MAPElites(
-        scoring_function=scoring_fn_cgp,
+        scoring_function=scoring_fn_lgp,
         emitter=mixing_emitter,
         metrics_function=metrics_function,
     )
@@ -128,7 +127,7 @@ def test_cgp_with_me() -> None:
 
     # Compute initial repertoire and emitter state
     key, subkey = jax.random.split(key)
-    repertoire, emitter_state, init_metrics = map_elites.init(init_cgp_genomes, centroids, subkey)
+    repertoire, emitter_state, init_metrics = map_elites.init(init_lgp_genomes, centroids, subkey)
 
     # Check repertoire is not empty
     pytest.assume(jnp.any(repertoire.fitnesses > -jnp.inf))
@@ -160,10 +159,9 @@ def test_cgp_with_me() -> None:
     pytest.assume(n_final_individuals >= n_initial_individuals)
 
 
-def test_cgp_with_me_ask_tell() -> None:
-    """Test that CGP can be used with ME in its ask-tell way and is jit safe.
+def test_lgp_with_me_ask_tell() -> None:
+    """Test that LGP can be used with ME in its ask-tell way and is jit safe.
         """
-
 
     batch_size = 10
     env_name = 'walker2d_uni'
@@ -182,8 +180,8 @@ def test_cgp_with_me_ask_tell() -> None:
     # Init a random key
     key = jax.random.key(seed)
 
-    # Init the CGP policy graph with default values
-    policy_graph = CGP(
+    # Init the lGP policy graph with default values
+    policy_graph = LGP(
         n_inputs=env.observation_size,
         n_outputs=env.action_size,
     )
@@ -191,11 +189,10 @@ def test_cgp_with_me_ask_tell() -> None:
     # Init the population of CGP genomes
     key, subkey = jax.random.split(key)
     keys = jax.random.split(subkey, num=batch_size)
-    init_cgp_genomes = jax.vmap(policy_graph.init)(keys)
-
+    init_lgp_genomes = jax.vmap(policy_graph.init)(keys)
 
     # Define the play step fn for CGP to interact with the env
-    def cgp_play_step_fn(
+    def lgp_play_step_fn(
             env_state,
             policy_params,
             key,
@@ -224,11 +221,11 @@ def test_cgp_with_me_ask_tell() -> None:
 
     # Prepare the scoring function
     descriptor_extraction_fn = environments.descriptor_extractor[env_name]
-    scoring_fn_cgp = functools.partial(
+    scoring_fn_lgp = functools.partial(
         scoring_function,
         episode_length=episode_length,
         play_reset_fn=reset_fn,
-        play_step_fn=cgp_play_step_fn,
+        play_step_fn=lgp_play_step_fn,
         descriptor_extractor=descriptor_extraction_fn,
     )
 
@@ -242,19 +239,22 @@ def test_cgp_with_me_ask_tell() -> None:
     )
 
     # Define emitter
-    cgp_variation_fn = functools.partial(
-        cgp_mutation, cgp=policy_graph  # , mutation_probabilities={"inputs" : .2}
+    lgp_mutation_fn = functools.partial(
+        lgp_mutation, lgp=policy_graph
+    )
+    lgp_crossover_fn = functools.partial(
+        lgp_crossover, lgp=policy_graph
     )
     mixing_emitter = MixingEmitter(
-        mutation_fn=cgp_variation_fn,
-        variation_fn=None,
-        variation_percentage=0.0,   # note: CGP works with mutation only
+        mutation_fn=lgp_mutation_fn,
+        variation_fn=lgp_crossover_fn,
+        variation_percentage=0.5,
         batch_size=batch_size
     )
 
     # Instantiate MAP-Elites
     map_elites = MAPElites(
-        scoring_function=scoring_fn_cgp,
+        scoring_function=scoring_fn_lgp,
         emitter=mixing_emitter,
         metrics_function=metrics_function,
     )
@@ -272,11 +272,11 @@ def test_cgp_with_me_ask_tell() -> None:
 
     # Evaluate the initial population
     key, subkey = jax.random.split(key)
-    fitnesses, descriptors, extra_scores = scoring_fn_cgp(init_cgp_genomes, subkey)
+    fitnesses, descriptors, extra_scores = scoring_fn_lgp(init_lgp_genomes, subkey)
 
     # Compute initial repertoire and emitter state
     repertoire, emitter_state, metrics = map_elites.init_ask_tell(
-        genotypes=init_cgp_genomes,
+        genotypes=init_lgp_genomes,
         fitnesses=fitnesses,
         descriptors=descriptors,
         centroids=centroids,
@@ -301,7 +301,7 @@ def test_cgp_with_me_ask_tell() -> None:
         # Evaluate solutions: get fitness, descriptor and extra scores.
         # This is where custom evaluations on CPU or GPU can be added.
         key, subkey = jax.random.split(key)
-        fitnesses, descriptors, extra_scores = scoring_fn_cgp(genotypes, subkey)
+        fitnesses, descriptors, extra_scores = scoring_fn_lgp(genotypes, subkey)
 
         # Update MAP-Elites
         repertoire, emitter_state, current_metrics = tell_fn(
