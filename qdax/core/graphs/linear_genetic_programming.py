@@ -201,6 +201,66 @@ class LGP:
         )
         return active_lines.astype(int)
 
+    def get_readable_program(
+            self,
+            lgp_genome_params: Genotype) -> str:
+        """Generate a human-readable Python-like representation of an LGP program.
+
+            The LGP genome is unrolled into a sequence of instructions that
+            operate on registers. Inputs are first copied into registers, then
+            program lines are expanded into assignment statements. Only active
+            lines (contributing to the outputs) are included.
+
+            Unary functions are printed in the form:
+                r[target] = f(r[x])
+            Binary functions are printed in the form:
+                r[target] = r[x] op r[y]
+            where `op` is the function symbol (e.g., `+`, `*`, `sin`).
+
+            The outputs are read from the last `n_outputs` registers.
+
+            Args:
+                lgp_genome_params: LGP genotype.
+
+            Returns:
+                str: A string representing the program as a Python function,
+                showing register initialization, executed instructions, and
+                the final outputs.
+
+            Example:
+                def program(inputs):
+                    r[[0, 1]] = inputs
+                    r[[2]] = [0.1]
+                    r[3] = r[0] + r[2]
+                    r[4] = tanh(r[3])
+                    outputs = r[[3, 4]]
+                    return outputs
+            """
+        # header and inputs copy into registers
+        program_lines = [f"def program(inputs):",
+                         f"r[{list(range(self.n_inputs))}] = inputs",
+                         f"r[{list(range(self.n_inputs, self.n_inputs + len(self.input_constants)))}] = {self.input_constants}"]
+
+        functions = list(self.function_set.function_set.values())
+        active_lines = self.compute_active_lines(lgp_genome_params)
+
+        # execution
+        for line_idx in range(self.n_program_lines):
+            if active_lines[line_idx]:
+                function = functions[lgp_genome_params["params"]["functions_genes"][line_idx]]
+                target_reg = lgp_genome_params['params']['target_registers_genes'][line_idx]
+                x_reg = lgp_genome_params['params']['x_connections_genes'][line_idx]
+                y_reg = lgp_genome_params['params']['y_connections_genes'][line_idx]
+                if function.arity > 1:
+                    program_lines.append(f"r[{target_reg}] = r[{x_reg}] {function.symbol} r[{y_reg}]")
+                else:
+                    program_lines.append(f"r[{target_reg}] = {function.symbol}(r[{x_reg}])")
+
+        # output selection
+        program_lines.append(f"outputs = r[{list(range(self.n_registers - self.n_outputs, self.n_registers))}]")
+        program_lines.append("return outputs")
+        return "\n\t".join(program_lines)
+
 
 def lgp_mutation(
         genotype: Genotype,
