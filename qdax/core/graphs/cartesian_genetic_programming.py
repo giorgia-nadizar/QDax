@@ -169,8 +169,8 @@ class CGP:
         # define function to mark if a buffer is active in a certain position
         def _compute_active_nodes(
                 opposite_idx: int,
-                carry: Tuple[Genotype, jnp.ndarray],
-        ) -> Tuple[Genotype, jnp.ndarray]:
+                carry: Tuple[Genotype, Mask],
+        ) -> Tuple[Genotype, Mask]:
             cgp_genes, active = carry
             n_in = len(active) - len(cgp_genes["params"]["x_connections_genes"])
             idx = len(active) - opposite_idx - 1
