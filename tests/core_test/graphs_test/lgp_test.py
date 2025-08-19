@@ -83,3 +83,45 @@ def test_known_genome_execution() -> None:
             )
             expected_outputs = jnp.tanh(jnp.asarray([x, lgp.input_constants[0], x + y, (x + y) * y]))
             pytest.assume(jnp.allclose(outputs, expected_outputs, rtol=1e-5, atol=1e-8))
+
+
+def test_active_lines() -> None:
+    """Test that a LGP genomes has the correct active nodes.
+        """
+    # define genome structure
+    lgp = LGP(
+        n_inputs=2,
+        n_outputs=4,
+        n_program_lines=5,
+        n_computation_registers=4
+    )
+    lgp_genome = {
+        "params": {
+            "target_registers_genes": jnp.asarray([8, 9, 10, 11, 4]),
+            "x_connections_genes": jnp.asarray([0, 2, 0, 10, 2]),
+            "y_connections_genes": jnp.asarray([3, 3, 1, 1, 10]),
+            "functions_genes": jnp.asarray([2, 2, 0, 2, 1]),
+        }
+    }
+    expected_active_lines = jnp.asarray([1, 1, 1, 1, 0])
+    active_lines = lgp.compute_active_lines(lgp_genome)
+    pytest.assume(jnp.array_equal(active_lines, expected_active_lines))
+
+    # define genome structure
+    lgp2 = LGP(
+        n_inputs=2,
+        n_outputs=2,
+        n_program_lines=2,
+        n_computation_registers=4
+    )
+    lgp_genome2 = {
+        "params": {
+            "target_registers_genes": jnp.asarray([5, 9]),
+            "x_connections_genes": jnp.asarray([0, 0]),
+            "y_connections_genes": jnp.asarray([1, 5]),
+            "functions_genes": jnp.asarray([2, 5]),
+        }
+    }
+    expected_active_lines2 = jnp.asarray([0, 1])
+    active_lines2 = lgp2.compute_active_lines(lgp_genome2)
+    pytest.assume(jnp.array_equal(active_lines2, expected_active_lines2))

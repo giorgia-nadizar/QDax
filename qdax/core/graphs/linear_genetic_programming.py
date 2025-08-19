@@ -9,7 +9,7 @@ from jax.lax import fori_loop
 
 from qdax.core.graphs.utils import _mutate_subgenome
 from qdax.core.graphs.functions import FunctionSet
-from qdax.custom_types import RNGKey, Genotype
+from qdax.custom_types import RNGKey, Genotype, Mask
 
 
 @struct.dataclass
@@ -152,6 +152,55 @@ class LGP:
         # apply wrapper to constraint the outputs in the correct domain
         return self.outputs_wrapper(outputs)
 
+    def compute_active_lines(
+            self,
+            lgp_genome_params: Genotype,
+    ) -> Mask:
+        """
+        Compute the mask of active (expressed) program lines in a LGP genome.
+        This method identifies which lines are active by starting from the output
+        registers and recursively marking all lines that contribute to them.
+
+        Args:
+            lgp_genome_params: the CGP genome parameters.
+
+        Returns:
+            Mask: a binary mask (1 = active, 0 = inactive) of length `n_program_lines`,
+            indicating which lines are used in producing the final outputs.
+        """
+
+        active_lines = jnp.zeros(self.n_program_lines)
+        registers_mask = jnp.where(jnp.arange(self.n_registers) >= (self.n_registers - self.n_outputs), 1, 0)
+
+        # define function to mark if a line is active
+        def _compute_active_lines(
+                opposite_idx: int,
+                carry: Tuple[Genotype, Mask, Mask]
+        ) -> Tuple[Genotype, Mask, Mask]:
+            lgp_genes, active, regs_mask = carry
+            line_idx = len(active) - opposite_idx - 1
+            line_use = regs_mask.at[lgp_genes["params"]["target_registers_genes"].at[line_idx].get()].get()
+            active = active.at[line_idx].set(line_use)
+
+            x_reg = lgp_genes["params"]["x_connections_genes"].at[line_idx].get()
+            y_reg = lgp_genes["params"]["y_connections_genes"].at[line_idx].get()
+            arity = self.function_set.arities.at[lgp_genes["params"]["functions_genes"][line_idx]].get()
+            regs_mask = regs_mask.at[line_idx].set(0)
+            regs_mask = regs_mask.at[x_reg].set(jnp.logical_or(line_use, regs_mask.at[x_reg].get()))
+            regs_mask = regs_mask.at[y_reg].set(jnp.logical_or(
+                regs_mask.at[y_reg].get(), jnp.logical_and(line_use, arity == 2)
+            ))
+
+            return lgp_genes, active, regs_mask
+
+        _, active_lines, _ = fori_loop(
+            lower=0,
+            upper=self.n_program_lines,
+            body_fun=_compute_active_lines,
+            init_val=(lgp_genome_params, active_lines, registers_mask)
+        )
+        return active_lines.astype(int)
+
 
 def lgp_mutation(
         genotype: Genotype,
@@ -211,9 +260,9 @@ def lgp_mutation(
     return {
         "params": {
             "target_registers_genes": _mutate_subgenome(genotype["params"]["target_registers_genes"],
-                                                     donor_genotype["params"]["target_registers_genes"],
-                                                     targets_key,
-                                                     p_mut_targets),
+                                                        donor_genotype["params"]["target_registers_genes"],
+                                                        targets_key,
+                                                        p_mut_targets),
             "x_connections_genes": _mutate_subgenome(genotype["params"]["x_connections_genes"],
                                                      donor_genotype["params"]["x_connections_genes"],
                                                      x_key,
