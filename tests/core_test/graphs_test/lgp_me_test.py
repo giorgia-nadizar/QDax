@@ -1,15 +1,17 @@
 import functools
 
 import jax
-import jax.numpy as jnp
 import pytest
 
 import qdax.tasks.brax.v1 as environments
 from qdax.core.containers.mapelites_repertoire import compute_cvt_centroids
+from qdax.core.emitters.mutation_operators import isoline_variation
 from qdax.core.emitters.standard_emitters import MixingEmitter
 from qdax.core.graphs.cartesian_genetic_programming import CGP, cgp_mutation
 from qdax.core.map_elites import MAPElites
 from qdax.core.neuroevolution.buffers.buffer import QDTransition
+from qdax.core.neuroevolution.networks.networks import MLP
+import jax.numpy as jnp
 from qdax.tasks.brax.v1.env_creators import scoring_function_brax_envs as scoring_function
 from qdax.utils.metrics import default_qd_metrics
 
@@ -17,6 +19,7 @@ from qdax.utils.metrics import default_qd_metrics
 def test_cgp_with_me() -> None:
     """Test that CGP can be used with ME and is jit safe.
         """
+
 
     batch_size = 10
     env_name = 'walker2d_uni'
@@ -45,6 +48,7 @@ def test_cgp_with_me() -> None:
     key, subkey = jax.random.split(key)
     keys = jax.random.split(subkey, num=batch_size)
     init_cgp_genomes = jax.vmap(policy_graph.init)(keys)
+
 
     # Define the play step fn for CGP to interact with the env
     def cgp_play_step_fn(
@@ -100,7 +104,7 @@ def test_cgp_with_me() -> None:
     mixing_emitter = MixingEmitter(
         mutation_fn=cgp_variation_fn,
         variation_fn=None,
-        variation_percentage=0.0,  # note: CGP works with mutation only
+        variation_percentage=0.0,   # note: CGP works with mutation only
         batch_size=batch_size
     )
 
@@ -160,6 +164,7 @@ def test_cgp_with_me_ask_tell() -> None:
     """Test that CGP can be used with ME in its ask-tell way and is jit safe.
         """
 
+
     batch_size = 10
     env_name = 'walker2d_uni'
     episode_length = 100
@@ -187,6 +192,7 @@ def test_cgp_with_me_ask_tell() -> None:
     key, subkey = jax.random.split(key)
     keys = jax.random.split(subkey, num=batch_size)
     init_cgp_genomes = jax.vmap(policy_graph.init)(keys)
+
 
     # Define the play step fn for CGP to interact with the env
     def cgp_play_step_fn(
@@ -242,7 +248,7 @@ def test_cgp_with_me_ask_tell() -> None:
     mixing_emitter = MixingEmitter(
         mutation_fn=cgp_variation_fn,
         variation_fn=None,
-        variation_percentage=0.0,  # note: CGP works with mutation only
+        variation_percentage=0.0,   # note: CGP works with mutation only
         batch_size=batch_size
     )
 
