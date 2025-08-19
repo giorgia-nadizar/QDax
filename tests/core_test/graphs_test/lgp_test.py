@@ -125,3 +125,21 @@ def test_active_lines() -> None:
     expected_active_lines2 = jnp.asarray([0, 1])
     active_lines2 = lgp2.compute_active_lines(lgp_genome2)
     pytest.assume(jnp.array_equal(active_lines2, expected_active_lines2))
+
+
+def test_active_lines_jit() -> None:
+    """Test that the computation of the active lines is jittable.
+    """
+    key = jax.random.key(42)
+    lgp = LGP(
+        n_inputs=3,
+        n_outputs=2,
+    )
+
+    # Init the population of CGP genomes
+    key, subkey = jax.random.split(key)
+    keys = jax.random.split(subkey, num=10)
+    init_lgp_genomes = jax.vmap(lgp.init)(keys)
+
+    # Check it runs
+    jax.vmap(lgp.compute_active_lines)(init_lgp_genomes)
