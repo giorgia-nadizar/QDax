@@ -2,7 +2,7 @@ import jax
 import jax.numpy as jnp
 import pytest
 
-from qdax.core.graphs.linear_genetic_programming import LGP, lgp_mutation
+from qdax.core.graphs.linear_genetic_programming import LGP, lgp_mutation, lgp_crossover
 
 
 def test_genome_bounds() -> None:
@@ -46,6 +46,19 @@ def test_genome_bounds() -> None:
     pytest.assume(jnp.all(mutated_lgp_genome["params"]["x_connections_genes"] < assignments_upper_bounds))
     pytest.assume(jnp.all(mutated_lgp_genome["params"]["y_connections_genes"] < assignments_upper_bounds))
     pytest.assume(jnp.all(mutated_lgp_genome["params"]["functions_genes"] < functions_bound))
+
+    # init another genome and perform crossover
+    key, another_init_key = jax.random.split(key)
+    another_lgp_genome = lgp.init(another_init_key)
+    key, xover_key = jax.random.split(key)
+    crossed_genome = lgp_crossover(mutated_lgp_genome, another_lgp_genome, xover_key, lgp)
+
+    # check if bounds are respected after crossover
+    pytest.assume(jnp.all(crossed_genome["params"]["target_registers_genes"] >= lhs_lower_bound))
+    pytest.assume(jnp.all(crossed_genome["params"]["target_registers_genes"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(crossed_genome["params"]["x_connections_genes"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(crossed_genome["params"]["y_connections_genes"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(crossed_genome["params"]["functions_genes"] < functions_bound))
 
 
 def test_known_genome_execution() -> None:

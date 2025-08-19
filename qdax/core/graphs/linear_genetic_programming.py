@@ -3,6 +3,7 @@
 from typing import Callable, Tuple, Optional, Dict
 
 import jax.numpy as jnp
+import jax.random
 from flax import struct
 from jax import random, jit
 from jax.lax import fori_loop
@@ -260,6 +261,56 @@ class LGP:
         program_lines.append(f"outputs = r[{list(range(self.n_registers - self.n_outputs, self.n_registers))}]")
         program_lines.append("return outputs")
         return "\n\t".join(program_lines)
+
+
+def lgp_crossover(
+        genotype1: Genotype,
+        genotype2: Genotype,
+        rnd_key: RNGKey,
+        lgp: LGP,
+) -> Genotype:
+    """Performs one-point crossover between two LGP genomes.
+
+        A crossover point is chosen uniformly at random among the program lines.
+        Genes before the crossover point are inherited from the first parent,
+        while genes from the crossover point onward are inherited from the
+        second parent. This is applied consistently across all genome sections
+        (`target_registers_genes`, `x_connections_genes`, `y_connections_genes`,
+        `functions_genes`).
+
+        The operation produces a valid LGP genome of the same structure as the
+        parents.
+
+        Args:
+            genotype1: first LGP parent genome.
+            genotype2: second LGP parent genome.
+            rnd_key: JAX PRNG key for randomness.
+            lgp: LGP instance, used to determine the number of program lines.
+
+        Returns:
+            Genotype: the offspring genome created by crossover.
+        """
+
+    cross_idx = jax.random.randint(rnd_key, (1,), 0, lgp.n_program_lines) + 1
+    genes_ids = jnp.arange(lgp.n_program_lines)
+    mask = genes_ids < cross_idx
+    # crossover each sub-part of the genome
+    return {
+        "params": {
+            "target_registers_genes": jnp.where(mask,
+                                                genotype1["params"]["target_registers_genes"],
+                                                genotype2["params"]["target_registers_genes"]),
+            "x_connections_genes": jnp.where(mask,
+                                             genotype1["params"]["x_connections_genes"],
+                                             genotype2["params"]["x_connections_genes"]),
+            "y_connections_genes": jnp.where(mask,
+                                             genotype1["params"]["y_connections_genes"],
+                                             genotype2["params"]["y_connections_genes"]),
+            "functions_genes": jnp.where(mask,
+                                         genotype1["params"]["functions_genes"],
+                                         genotype2["params"]["functions_genes"]),
+        }
+    }
 
 
 def lgp_mutation(
