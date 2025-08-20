@@ -168,15 +168,15 @@ def test_gradient_optimization_of_constants() -> None:
         n_inputs=3,
         input_constants=jnp.asarray([]),
         n_outputs=2,
-        n_nodes=3,
+        n_nodes=4,
         weighted_graph=True
     )
-    target_weights = jnp.asarray([.2, -.5, .4])
+    target_weights = jnp.asarray([.2, -.5, .4, -.3])
     cgp_genome = {
         "params": {
-            "inputs1": jax.lax.stop_gradient(jnp.asarray([0, 1, 3])),
-            "inputs2": jax.lax.stop_gradient(jnp.asarray([0, 2, 4])),
-            "functions": jax.lax.stop_gradient(jnp.asarray([6, 2, 0])),
+            "inputs1": jax.lax.stop_gradient(jnp.asarray([0, 1, 3, 0])),
+            "inputs2": jax.lax.stop_gradient(jnp.asarray([0, 2, 4, 1])),
+            "functions": jax.lax.stop_gradient(jnp.asarray([6, 2, 0, 0])),
             "outputs": jax.lax.stop_gradient(jnp.asarray([3, 5])),
             "weights": target_weights,
         }
