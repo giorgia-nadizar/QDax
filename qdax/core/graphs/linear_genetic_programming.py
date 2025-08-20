@@ -75,10 +75,10 @@ class LGP:
             Returns:
                 A dictionary containing the `"params"` key with genome sections as
                 integer JAX arrays:
-                    - `"target_registers_genes"`
-                    - `"x_arguments_genes"`
-                    - `"y_arguments_genes"`
-                    - `"functions_genes"`
+                    - `"target_registers"`
+                    - `"x_arguments"`
+                    - `"y_arguments"`
+                    - `"functions"`
                 The encoding is inspired by that of MLPs.
             """
         # determine bounds for genes for each section of the genome
@@ -97,10 +97,10 @@ class LGP:
         # rescale, cast to integer and store the random genome parts
         return {
             "params": {
-                "target_registers_genes": (jnp.floor(random_targets * lhs_mask) + lhs_offset).astype(int),
-                "x_connections_genes": jnp.floor(random_x * rhs_mask).astype(int),
-                "y_connections_genes": jnp.floor(random_y * rhs_mask).astype(int),
-                "functions_genes": jnp.floor(random_f * f_mask).astype(int)
+                "target_registers": (jnp.floor(random_targets * lhs_mask) + lhs_offset).astype(int),
+                "x_connections": jnp.floor(random_x * rhs_mask).astype(int),
+                "y_connections": jnp.floor(random_y * rhs_mask).astype(int),
+                "functions": jnp.floor(random_f * f_mask).astype(int)
             }
         }
 
@@ -131,10 +131,10 @@ class LGP:
                               carry: Tuple[Genotype, jnp.ndarray]
                               ) -> Tuple[Genotype, jnp.ndarray]:
             lgp_genes, regs = carry
-            target_register_idx = lgp_genes["params"]["target_registers_genes"].at[line_idx].get()
-            f_idx = lgp_genes["params"]["functions_genes"].at[line_idx].get()
-            x_arg = regs.at[lgp_genes["params"]["x_connections_genes"].at[line_idx].get()].get()
-            y_arg = regs.at[lgp_genes["params"]["y_connections_genes"].at[line_idx].get()].get()
+            target_register_idx = lgp_genes["params"]["target_registers"].at[line_idx].get()
+            f_idx = lgp_genes["params"]["functions"].at[line_idx].get()
+            x_arg = regs.at[lgp_genes["params"]["x_connections"].at[line_idx].get()].get()
+            y_arg = regs.at[lgp_genes["params"]["y_connections"].at[line_idx].get()].get()
             f_computed = self.function_set.apply(f_idx, x_arg, y_arg)
             regs = regs.at[target_register_idx].set(f_computed)
             return lgp_genes, regs
@@ -180,12 +180,12 @@ class LGP:
         ) -> Tuple[Genotype, Mask, Mask]:
             lgp_genes, active, regs_mask = carry
             line_idx = len(active) - opposite_idx - 1
-            line_use = regs_mask.at[lgp_genes["params"]["target_registers_genes"].at[line_idx].get()].get()
+            line_use = regs_mask.at[lgp_genes["params"]["target_registers"].at[line_idx].get()].get()
             active = active.at[line_idx].set(line_use)
 
-            x_reg = lgp_genes["params"]["x_connections_genes"].at[line_idx].get()
-            y_reg = lgp_genes["params"]["y_connections_genes"].at[line_idx].get()
-            arity = self.function_set.arities.at[lgp_genes["params"]["functions_genes"][line_idx]].get()
+            x_reg = lgp_genes["params"]["x_connections"].at[line_idx].get()
+            y_reg = lgp_genes["params"]["y_connections"].at[line_idx].get()
+            arity = self.function_set.arities.at[lgp_genes["params"]["functions"][line_idx]].get()
             regs_mask = regs_mask.at[line_idx].set(0)
             regs_mask = regs_mask.at[x_reg].set(jnp.logical_or(line_use, regs_mask.at[x_reg].get()))
             regs_mask = regs_mask.at[y_reg].set(jnp.logical_or(
@@ -257,14 +257,14 @@ class LGP:
                                     reg_idx: int, max_row_idx: int, ) -> str:
             functions = list(self.function_set.function_set.values())
             for row_idx in range(max_row_idx - 1, -1, -1):
-                if int(lgp_genes['params']['target_registers_genes'][row_idx]) == reg_idx:
-                    function = functions[lgp_genes["params"]["functions_genes"][row_idx]]
+                if int(lgp_genes['params']['target_registers'][row_idx]) == reg_idx:
+                    function = functions[lgp_genes["params"]["functions"][row_idx]]
                     if function.arity == 1:
-                        return f"{function.symbol}({_replace_lgp_expression(lgp_genes, int(lgp_genes['params']['x_connections_genes'][row_idx]), row_idx)})"
+                        return f"{function.symbol}({_replace_lgp_expression(lgp_genes, int(lgp_genes['params']['x_connections'][row_idx]), row_idx)})"
                     else:
-                        return f"({_replace_lgp_expression(lgp_genes, int(lgp_genes['params']['x_connections_genes'][row_idx]), row_idx)}" \
+                        return f"({_replace_lgp_expression(lgp_genes, int(lgp_genes['params']['x_connections'][row_idx]), row_idx)}" \
                                f"{function.symbol}" \
-                               f"{_replace_lgp_expression(lgp_genes, int(lgp_genes['params']['y_connections_genes'][row_idx]), row_idx)})"
+                               f"{_replace_lgp_expression(lgp_genes, int(lgp_genes['params']['y_connections'][row_idx]), row_idx)})"
             if reg_idx < self.n_inputs:
                 return inputs_mapping_fn(int(reg_idx))
             elif reg_idx < n_in:
@@ -326,10 +326,10 @@ class LGP:
         # execution
         for line_idx in range(self.n_program_lines):
             if active_lines[line_idx]:
-                function = functions[lgp_genome_params["params"]["functions_genes"][line_idx]]
-                target_reg = lgp_genome_params['params']['target_registers_genes'][line_idx]
-                x_reg = lgp_genome_params['params']['x_connections_genes'][line_idx]
-                y_reg = lgp_genome_params['params']['y_connections_genes'][line_idx]
+                function = functions[lgp_genome_params["params"]["functions"][line_idx]]
+                target_reg = lgp_genome_params['params']['target_registers'][line_idx]
+                x_reg = lgp_genome_params['params']['x_connections'][line_idx]
+                y_reg = lgp_genome_params['params']['y_connections'][line_idx]
                 if function.arity > 1:
                     program_lines.append(f"r[{target_reg}] = r[{x_reg}] {function.symbol} r[{y_reg}]")
                 else:
@@ -375,18 +375,18 @@ def lgp_crossover(
     # crossover each sub-part of the genome
     return {
         "params": {
-            "target_registers_genes": jnp.where(mask,
-                                                genotype1["params"]["target_registers_genes"],
-                                                genotype2["params"]["target_registers_genes"]),
-            "x_connections_genes": jnp.where(mask,
-                                             genotype1["params"]["x_connections_genes"],
-                                             genotype2["params"]["x_connections_genes"]),
-            "y_connections_genes": jnp.where(mask,
-                                             genotype1["params"]["y_connections_genes"],
-                                             genotype2["params"]["y_connections_genes"]),
-            "functions_genes": jnp.where(mask,
-                                         genotype1["params"]["functions_genes"],
-                                         genotype2["params"]["functions_genes"]),
+            "target_registers": jnp.where(mask,
+                                          genotype1["params"]["target_registers"],
+                                          genotype2["params"]["target_registers"]),
+            "x_connections": jnp.where(mask,
+                                       genotype1["params"]["x_connections"],
+                                       genotype2["params"]["x_connections"]),
+            "y_connections": jnp.where(mask,
+                                       genotype1["params"]["y_connections"],
+                                       genotype2["params"]["y_connections"]),
+            "functions": jnp.where(mask,
+                                   genotype1["params"]["functions"],
+                                   genotype2["params"]["functions"]),
         }
     }
 
@@ -448,21 +448,21 @@ def lgp_mutation(
     # mutate each sub-part of the genome
     return {
         "params": {
-            "target_registers_genes": _mutate_subgenome(genotype["params"]["target_registers_genes"],
-                                                        donor_genotype["params"]["target_registers_genes"],
-                                                        targets_key,
-                                                        p_mut_targets),
-            "x_connections_genes": _mutate_subgenome(genotype["params"]["x_connections_genes"],
-                                                     donor_genotype["params"]["x_connections_genes"],
-                                                     x_key,
-                                                     p_mut_inputs),
-            "y_connections_genes": _mutate_subgenome(genotype["params"]["y_connections_genes"],
-                                                     donor_genotype["params"]["y_connections_genes"],
-                                                     y_key,
-                                                     p_mut_inputs),
-            "functions_genes": _mutate_subgenome(genotype["params"]["functions_genes"],
-                                                 donor_genotype["params"]["functions_genes"],
-                                                 f_key,
-                                                 p_mut_functions),
+            "target_registers": _mutate_subgenome(genotype["params"]["target_registers"],
+                                                  donor_genotype["params"]["target_registers"],
+                                                  targets_key,
+                                                  p_mut_targets),
+            "x_connections": _mutate_subgenome(genotype["params"]["x_connections"],
+                                               donor_genotype["params"]["x_connections"],
+                                               x_key,
+                                               p_mut_inputs),
+            "y_connections": _mutate_subgenome(genotype["params"]["y_connections"],
+                                               donor_genotype["params"]["y_connections"],
+                                               y_key,
+                                               p_mut_inputs),
+            "functions": _mutate_subgenome(genotype["params"]["functions"],
+                                           donor_genotype["params"]["functions"],
+                                           f_key,
+                                           p_mut_functions),
         }
     }
