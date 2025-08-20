@@ -202,9 +202,9 @@ def test_gradient_optimization_of_constants() -> None:
         return jnp.mean((pred_y - target_y) ** 2)
 
     @jax.jit
-    def step(genome, weights, opt_state, inputs, targets):
+    def step(genome, weights, opt_st, inputs, targets):
         loss, grads = jax.value_and_grad(loss_fn)(weights, genome, inputs, targets)
-        updates, opt_state = optimizer.update(grads, opt_state)
+        updates, opt_st = optimizer.update(grads, opt_st)
         params = optax.apply_updates(weights, updates)
         return params, opt_state, loss
 
