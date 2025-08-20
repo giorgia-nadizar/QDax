@@ -40,6 +40,7 @@ class CGP:
             before returning them to bound them in a certain range.
         fixed_outputs: whether the output nodes are fixed in their connections
             (last nodes in the sequence) or can be evolved.
+        weighted_graph: whether the genome will contain weighting factors for each node.
     """
     n_inputs: int
     n_outputs: int
@@ -48,6 +49,7 @@ class CGP:
     input_constants: jnp.ndarray = jnp.asarray([0.1, 1.0])
     outputs_wrapper: Callable = jnp.tanh
     fixed_outputs: bool = False
+    weighted_graph: bool = False
 
     @property
     def buffer_size(self) -> int:
@@ -72,6 +74,7 @@ class CGP:
                     - `"inputs2"`
                     - `"functions"`
                     - `"outputs"`
+                    - `"weights"`
                 The encoding is inspired by that of MLPs.
             """
         # determine bounds for genes for each section of the genome
@@ -81,11 +84,12 @@ class CGP:
         out_mask = (self.n_inputs + len(self.input_constants) + self.n_nodes) * jnp.ones(self.n_outputs)
 
         # generate the random float values for each section of the genome
-        x_key, y_key, f_key, out_key = random.split(rngs, 4)
+        x_key, y_key, f_key, out_key, weights_key = random.split(rngs, 5)
         random_x = random.uniform(key=x_key, shape=in_mask.shape)
         random_y = random.uniform(key=y_key, shape=in_mask.shape)
         random_f = random.uniform(key=f_key, shape=f_mask.shape)
         random_out = random.uniform(key=out_key, shape=out_mask.shape)
+        random_weights = random.uniform(key=weights_key, shape=f_mask.shape) * 2 - 1
 
         # rescale, cast to integer and store the random genome parts
         return {
@@ -93,14 +97,15 @@ class CGP:
                 "inputs1": jnp.floor(random_x * in_mask).astype(int),
                 "inputs2": jnp.floor(random_y * in_mask).astype(int),
                 "functions": jnp.floor(random_f * f_mask).astype(int),
-                "outputs": out_mask if self.fixed_outputs else
-                jnp.floor(random_out * out_mask).astype(int)
+                "outputs": out_mask if self.fixed_outputs else jnp.floor(random_out * out_mask).astype(int),
+                "weights": random_weights if self.weighted_graph else jnp.ones_like(random_weights)
             }
         }
 
     def apply(self,
               cgp_genome_params: Genotype,
               obs: jnp.ndarray,
+              weights: jnp.ndarray = None,
               ) -> jnp.ndarray:
         """Evaluates a CGP genome on a given input observation.
 
@@ -110,12 +115,16 @@ class CGP:
 
             Args:
                 cgp_genome_params: dictionary of CGP genome parameters.
+                weights: array of weights for each node, defaults to the CGP weights (or 1 if not weighted).
                 obs: problem inputs/observation.
 
             Returns:
                 Array of processed outputs after evaluating the genome and applying
                 the output wrapper.
             """
+
+        if weights is None:
+            weights = cgp_genome_params["params"]["weights"]
 
         # define function to update buffer in a certain position: get inputs from the x and y connections
         # then apply the function
@@ -129,7 +138,8 @@ class CGP:
             f_idx = cgp_genes["params"]["functions"].at[idx].get()
             x_arg = buff.at[cgp_genes["params"]["inputs1"].at[idx].get()].get()
             y_arg = buff.at[cgp_genes["params"]["inputs2"].at[idx].get()].get()
-            f_computed = self.function_set.apply(f_idx, x_arg, y_arg)
+            weight = weights.at[idx].get()
+            f_computed = self.function_set.apply(f_idx, x_arg, y_arg) * weight
             buff = buff.at[buffer_idx].set(f_computed)
             return cgp_genes, buff
 
@@ -252,11 +262,12 @@ class CGP:
             functions = list(self.function_set.function_set.values())
             gene_idx = idx - n_in
             function = functions[cgp_genes["params"]["functions"][gene_idx]]
+            weighting_factor = f"{cgp_genes['params']['weights'][gene_idx]}*" if self.weighted_graph else ""
             if function.arity == 1:
-                return (f"{function.symbol}("
+                return (f"{weighting_factor}{function.symbol}("
                         f"{_replace_cgp_expression(cgp_genes, int(cgp_genes['params']['inputs1'][gene_idx]))})")
             else:
-                return f"({_replace_cgp_expression(cgp_genes, int(cgp_genes['params']['inputs1'][gene_idx]))}" \
+                return f"{weighting_factor}({_replace_cgp_expression(cgp_genes, int(cgp_genes['params']['inputs1'][gene_idx]))}" \
                        f"{function.symbol}{_replace_cgp_expression(cgp_genes, int(cgp_genes['params']['inputs2'][gene_idx]))})"
 
         for i, out in enumerate(cgp_genome_params["params"]["outputs"]):
@@ -273,9 +284,11 @@ def cgp_mutation(
         p_mut_inputs: float = 0.1,
         p_mut_functions: float = 0.1,
         p_mut_outputs: float = 0.3,
+        weights_mut_sigma: float = 0.1,
         mutation_probabilities: Optional[Dict[str, float]] = None
 ) -> Genotype:
-    """Mutates a CGP genome using int-flip mutation.
+    """Mutates a CGP genome using int-flip mutation. If the genome is weighted, the weights
+        are mutated with Gaussian mutation.
 
         This mutation is implemented as a form of crossover with a newly
         generated "donor" genome: for each gene, the value is taken from the
@@ -287,10 +300,10 @@ def cgp_mutation(
         `functools.partial` to pre-bind the `cgp` instance and mutation
         probabilities.
 
-        Mutation probabilities can be specified either via individual arguments
-        (`p_mut_inputs`, `p_mut_functions`, `p_mut_outputs`) or by passing a
+        Mutation probabilities and sigma can be specified either via individual arguments
+        (`p_mut_inputs`, `p_mut_functions`, `p_mut_outputs`, `weights_mut_sigma`) or by passing a
         dictionary to `mutation_probabilities` with keys `"inputs"`, `"functions"`,
-        and `"outputs"`. When both are provided, the dictionary values override
+        `"outputs"`, and `"weights_sigma"`. When both are provided, the dictionary values override
         the individual arguments.
 
         Args:
@@ -303,8 +316,10 @@ def cgp_mutation(
                 (ignored if overridden via `mutation_probabilities`).
             p_mut_outputs: probability of mutating each output connection gene
                 (ignored if overridden via `mutation_probabilities`).
+            weights_mut_sigma: mutation step for weights Gaussian mutation
+                (ignored if overridden via `mutation_probabilities`).
             mutation_probabilities: optional dictionary mapping `"inputs"`,
-                `"functions"`, and `"outputs"` to their mutation probabilities.
+                `"functions"`, `"outputs"`, and `"weights_sigma"` to their mutation probabilities.
 
         Returns:
             The mutated genome.
@@ -315,10 +330,13 @@ def cgp_mutation(
     p_mut_inputs = mutation_probabilities.get("inputs", p_mut_inputs)
     p_mut_functions = mutation_probabilities.get("functions", p_mut_functions)
     p_mut_outputs = mutation_probabilities.get("outputs", p_mut_outputs)
+    weights_mut_sigma = mutation_probabilities.get("weights_sigma", weights_mut_sigma)
 
-    new_key, x_key, y_key, f_key, out_key = random.split(rnd_key, 5)
+    new_key, x_key, y_key, f_key, out_key, weights_key = random.split(rnd_key, 6)
     # generate the donor genotype -> only few genes from this will be used
     donor_genotype = cgp.init(new_key)
+
+    weights_noise = weights_mut_sigma * random.normal(weights_key, shape=genotype["params"]["weights"].shape)
 
     # mutate each sub-part of the genome
     return {
@@ -339,5 +357,6 @@ def cgp_mutation(
                                          donor_genotype["params"]["outputs"],
                                          out_key,
                                          p_mut_outputs),
+            "weights": genotype["params"]["weights"] + cgp.weighted_graph * weights_noise
         }
     }
