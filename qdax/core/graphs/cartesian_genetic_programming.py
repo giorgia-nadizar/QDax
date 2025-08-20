@@ -1,6 +1,6 @@
 """Core components of Cartesian Genetic Programming (CGP) for graph evolution."""
 
-from typing import Callable, Dict, Tuple, Optional
+from typing import Callable, Dict, Tuple, Optional, Union
 
 import jax.numpy as jnp
 from flax import struct
@@ -193,7 +193,9 @@ class CGP:
 
     def get_readable_expression(
             self,
-            cgp_genome_params: Genotype) -> str:
+            cgp_genome_params: Genotype,
+            inputs_mapping: Union[Dict[int, str], Callable[[int], str]] = None,
+            outputs_mapping: Union[Dict[int, str], Callable[[int], str]] = None) -> str:
         """Generate a human-readable symbolic representation of a CGP genome.
 
             Unary functions are printed in the form:
@@ -204,6 +206,18 @@ class CGP:
 
             Args:
                 cgp_genome_params: CGP genotype.
+                inputs_mapping (dict[int,str] | callable[[int], str]], optional):
+                    Mapping from input indices to custom names.
+                    - If a dict, keys are input indices
+                    - If a callable, it is called with the input index and must
+                      return the desired string
+                    Defaults to "i0", "i1", ...
+                outputs_mapping (dict[int,str] | callable[[int], str]], optional):
+                    Mapping from output indices to custom names.
+                    - If a dict, keys are output indices
+                    - If a callable, it is called with the output index and must
+                      return the desired string
+                    Defaults to "o0", "o1", ...
 
             Returns:
                 str: A multi-line string, with one line per output, showing the
@@ -213,6 +227,18 @@ class CGP:
                 o0 = (i0+i1)
                 o1 = sin(i2)
             """
+        inputs_mapping = inputs_mapping or {}
+        if isinstance(inputs_mapping, dict):
+            inputs_mapping_fn = lambda idx: inputs_mapping.get(idx, f"i{idx}")
+        else:
+            inputs_mapping_fn = inputs_mapping
+
+        outputs_mapping = outputs_mapping or {}
+        if isinstance(outputs_mapping, dict):
+            outputs_mapping_fn = lambda idx: outputs_mapping.get(idx, f"o{idx}")
+        else:
+            outputs_mapping_fn = outputs_mapping
+
         n_in = self.n_inputs + len(self.input_constants)
         targets = []
 
@@ -220,7 +246,7 @@ class CGP:
                 cgp_genes: Genotype,
                 idx: int) -> str:
             if idx < self.n_inputs:
-                return f"i{idx}"
+                return inputs_mapping_fn(int(idx))
             elif idx < n_in:
                 return str(self.input_constants[idx - self.n_inputs])
             functions = list(self.function_set.function_set.values())
@@ -234,7 +260,7 @@ class CGP:
                        f"{function.symbol}{_replace_cgp_expression(cgp_genes, int(cgp_genes['params']['y_connections_genes'][gene_idx]))})"
 
         for i, out in enumerate(cgp_genome_params["params"]["output_connections_genes"]):
-            targets.append(f"o{i} = tanh({_replace_cgp_expression(cgp_genome_params, out)})")
+            targets.append(f"{outputs_mapping_fn(int(i))} = tanh({_replace_cgp_expression(cgp_genome_params, out)})")
 
         return "\n".join(targets)
 

@@ -1,6 +1,7 @@
 import jax
 import jax.numpy as jnp
 import pytest
+from jinja2.lexer import integer_re
 
 from qdax.core.graphs.cartesian_genetic_programming import CGP, cgp_mutation
 
@@ -125,6 +126,7 @@ def test_active_graph_jit() -> None:
     # Check it runs
     jax.vmap(cgp.compute_active_nodes)(init_cgp_genomes)
 
+
 def test_readable_expression() -> None:
     cgp = CGP(
         n_inputs=2,
@@ -139,4 +141,16 @@ def test_readable_expression() -> None:
             "output_connections_genes": jnp.asarray([0, 2, 4, 6])
         }
     }
-    print(cgp.get_readable_expression(cgp_genome))
+    print(cgp.get_readable_expression(cgp_genome), "\n")
+
+    inputs_mapping_fn = lambda x: f"i_{{{x}}}"
+    print(cgp.get_readable_expression(cgp_genome, inputs_mapping=inputs_mapping_fn), "\n")
+
+    inputs_mapping_dict = {0: "a", 1: "b"}
+    print(cgp.get_readable_expression(cgp_genome, inputs_mapping=inputs_mapping_dict), "\n")
+
+    outputs_mapping_fn = lambda x: f"o_{{{x}}}"
+    print(cgp.get_readable_expression(cgp_genome, outputs_mapping=outputs_mapping_fn), "\n")
+
+    outputs_mapping_dict = {0: "x", 1: "y"}
+    print(cgp.get_readable_expression(cgp_genome, outputs_mapping=outputs_mapping_dict), "\n")
