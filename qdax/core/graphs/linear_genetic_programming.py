@@ -275,7 +275,7 @@ class LGP:
         for output_idx in range(self.n_outputs):
             register_idx = self.n_registers - self.n_outputs + output_idx
             targets.append(
-                f"{outputs_mapping_fn(output_idx)} = {_replace_lgp_expression(lgp_genome_params, register_idx, self.n_program_lines)}"
+                f"{outputs_mapping_fn(output_idx)} = {self.outputs_wrapper.__name__}({_replace_lgp_expression(lgp_genome_params, register_idx, self.n_program_lines)})"
             )
 
         return "\n".join(targets)
@@ -337,7 +337,7 @@ class LGP:
 
         # output selection
         program_lines.append(f"outputs = r[{list(range(self.n_registers - self.n_outputs, self.n_registers))}]")
-        program_lines.append("return outputs")
+        program_lines.append(f"return {self.outputs_wrapper.__name__}(outputs)")
         return "\n\t".join(program_lines)
 
 

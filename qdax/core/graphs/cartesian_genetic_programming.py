@@ -260,7 +260,7 @@ class CGP:
                        f"{function.symbol}{_replace_cgp_expression(cgp_genes, int(cgp_genes['params']['y_connections_genes'][gene_idx]))})"
 
         for i, out in enumerate(cgp_genome_params["params"]["output_connections_genes"]):
-            targets.append(f"{outputs_mapping_fn(int(i))} = tanh({_replace_cgp_expression(cgp_genome_params, out)})")
+            targets.append(f"{outputs_mapping_fn(int(i))} = {self.outputs_wrapper.__name__}({_replace_cgp_expression(cgp_genome_params, out)})")
 
         return "\n".join(targets)
 
