@@ -30,10 +30,10 @@ def test_genome_bounds() -> None:
     initial_cgp_genome = cgp.init(init_key)
 
     # check if bounds are respected at initialization
-    pytest.assume(jnp.all(initial_cgp_genome["params"]["x_connections"] < connections_bounds))
-    pytest.assume(jnp.all(initial_cgp_genome["params"]["y_connections"] < connections_bounds))
+    pytest.assume(jnp.all(initial_cgp_genome["params"]["inputs1"] < connections_bounds))
+    pytest.assume(jnp.all(initial_cgp_genome["params"]["inputs2"] < connections_bounds))
     pytest.assume(jnp.all(initial_cgp_genome["params"]["functions"] < functions_bound))
-    pytest.assume(jnp.all(initial_cgp_genome["params"]["output_connections"] < outputs_bound))
+    pytest.assume(jnp.all(initial_cgp_genome["params"]["outputs"] < outputs_bound))
 
     # mutate genome
     key, mut_key = jax.random.split(key)
@@ -44,10 +44,10 @@ def test_genome_bounds() -> None:
     )
 
     # check if bounds are respected after mutation
-    pytest.assume(jnp.all(mutated_cgp_genome["params"]["x_connections"] < connections_bounds))
-    pytest.assume(jnp.all(mutated_cgp_genome["params"]["y_connections"] < connections_bounds))
+    pytest.assume(jnp.all(mutated_cgp_genome["params"]["inputs1"] < connections_bounds))
+    pytest.assume(jnp.all(mutated_cgp_genome["params"]["inputs2"] < connections_bounds))
     pytest.assume(jnp.all(mutated_cgp_genome["params"]["functions"] < functions_bound))
-    pytest.assume(jnp.all(mutated_cgp_genome["params"]["output_connections"] < outputs_bound))
+    pytest.assume(jnp.all(mutated_cgp_genome["params"]["outputs"] < outputs_bound))
 
 
 def test_known_genome_execution() -> None:
@@ -67,10 +67,10 @@ def test_known_genome_execution() -> None:
     )
     cgp_genome = {
         "params": {
-            "x_connections": jnp.asarray([0, 0, 4, 0, 0]),
-            "y_connections": jnp.ones(cgp.n_nodes, dtype=jnp.int32),
+            "inputs1": jnp.asarray([0, 0, 4, 0, 0]),
+            "inputs2": jnp.ones(cgp.n_nodes, dtype=jnp.int32),
             "functions": jnp.asarray([0, 0, 2, 0, 0]),
-            "output_connections": jnp.asarray([0, 2, 4, 6])
+            "outputs": jnp.asarray([0, 2, 4, 6])
         }
     }
 
@@ -97,10 +97,10 @@ def test_active_graph() -> None:
     )
     cgp_genome = {
         "params": {
-            "x_connections": jnp.asarray([0, 0, 4, 0, 0]),
-            "y_connections": jnp.asarray([1, 1, 5, 1, 1]),
+            "inputs1": jnp.asarray([0, 0, 4, 0, 0]),
+            "inputs2": jnp.asarray([1, 1, 5, 1, 1]),
             "functions": jnp.asarray([0, 0, 4, 0, 0]),
-            "output_connections": jnp.asarray([0, 2, 4, 6])
+            "outputs": jnp.asarray([0, 2, 4, 6])
         }
     }
     expected_active_nodes = jnp.asarray([1, 0, 1, 0, 0])
@@ -134,10 +134,10 @@ def test_readable_expression() -> None:
     )
     cgp_genome = {
         "params": {
-            "x_connections": jnp.asarray([0, 0, 4, 0, 0]),
-            "y_connections": jnp.asarray([1, 1, 5, 1, 1]),
+            "inputs1": jnp.asarray([0, 0, 4, 0, 0]),
+            "inputs2": jnp.asarray([1, 1, 5, 1, 1]),
             "functions": jnp.asarray([0, 0, 4, 0, 0]),
-            "output_connections": jnp.asarray([0, 2, 4, 6])
+            "outputs": jnp.asarray([0, 2, 4, 6])
         }
     }
     print(cgp.get_readable_expression(cgp_genome), "\n")

@@ -26,10 +26,10 @@ def test_genome_bounds() -> None:
     initial_lgp_genome = lgp.init(init_key)
 
     # check if bounds are respected at initialization
-    pytest.assume(jnp.all(initial_lgp_genome["params"]["target_registers"] >= lhs_lower_bound))
-    pytest.assume(jnp.all(initial_lgp_genome["params"]["target_registers"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(initial_lgp_genome["params"]["x_connections"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(initial_lgp_genome["params"]["y_connections"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(initial_lgp_genome["params"]["targets"] >= lhs_lower_bound))
+    pytest.assume(jnp.all(initial_lgp_genome["params"]["targets"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(initial_lgp_genome["params"]["inputs1"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(initial_lgp_genome["params"]["inputs2"] < assignments_upper_bounds))
     pytest.assume(jnp.all(initial_lgp_genome["params"]["functions"] < functions_bound))
 
     # mutate genome
@@ -41,10 +41,10 @@ def test_genome_bounds() -> None:
     )
 
     # check if bounds are respected after mutation
-    pytest.assume(jnp.all(mutated_lgp_genome["params"]["target_registers"] >= lhs_lower_bound))
-    pytest.assume(jnp.all(mutated_lgp_genome["params"]["target_registers"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(mutated_lgp_genome["params"]["x_connections"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(mutated_lgp_genome["params"]["y_connections"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(mutated_lgp_genome["params"]["targets"] >= lhs_lower_bound))
+    pytest.assume(jnp.all(mutated_lgp_genome["params"]["targets"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(mutated_lgp_genome["params"]["inputs1"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(mutated_lgp_genome["params"]["inputs2"] < assignments_upper_bounds))
     pytest.assume(jnp.all(mutated_lgp_genome["params"]["functions"] < functions_bound))
 
     # init another genome and perform crossover
@@ -54,10 +54,10 @@ def test_genome_bounds() -> None:
     crossed_genome = lgp_crossover(mutated_lgp_genome, another_lgp_genome, xover_key, lgp)
 
     # check if bounds are respected after crossover
-    pytest.assume(jnp.all(crossed_genome["params"]["target_registers"] >= lhs_lower_bound))
-    pytest.assume(jnp.all(crossed_genome["params"]["target_registers"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(crossed_genome["params"]["x_connections"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(crossed_genome["params"]["y_connections"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(crossed_genome["params"]["targets"] >= lhs_lower_bound))
+    pytest.assume(jnp.all(crossed_genome["params"]["targets"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(crossed_genome["params"]["inputs1"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(crossed_genome["params"]["inputs2"] < assignments_upper_bounds))
     pytest.assume(jnp.all(crossed_genome["params"]["functions"] < functions_bound))
 
 
@@ -79,9 +79,9 @@ def test_known_genome_execution() -> None:
     )
     lgp_genome = {
         "params": {
-            "target_registers": jnp.asarray([8, 9, 10, 11]),
-            "x_connections": jnp.asarray([0, 2, 0, 10]),
-            "y_connections": jnp.asarray([3, 3, 1, 1]),
+            "targets": jnp.asarray([8, 9, 10, 11]),
+            "inputs1": jnp.asarray([0, 2, 0, 10]),
+            "inputs2": jnp.asarray([3, 3, 1, 1]),
             "functions": jnp.asarray([2, 2, 0, 2]),
         }
     }
@@ -110,9 +110,9 @@ def test_active_lines() -> None:
     )
     lgp_genome = {
         "params": {
-            "target_registers": jnp.asarray([8, 9, 10, 11, 4]),
-            "x_connections": jnp.asarray([0, 2, 0, 10, 2]),
-            "y_connections": jnp.asarray([3, 3, 1, 1, 10]),
+            "targets": jnp.asarray([8, 9, 10, 11, 4]),
+            "inputs1": jnp.asarray([0, 2, 0, 10, 2]),
+            "inputs2": jnp.asarray([3, 3, 1, 1, 10]),
             "functions": jnp.asarray([2, 2, 0, 2, 1]),
         }
     }
@@ -129,9 +129,9 @@ def test_active_lines() -> None:
     )
     lgp_genome2 = {
         "params": {
-            "target_registers": jnp.asarray([5, 9]),
-            "x_connections": jnp.asarray([0, 0]),
-            "y_connections": jnp.asarray([1, 5]),
+            "targets": jnp.asarray([5, 9]),
+            "inputs1": jnp.asarray([0, 0]),
+            "inputs2": jnp.asarray([1, 5]),
             "functions": jnp.asarray([2, 5]),
         }
     }
@@ -167,9 +167,9 @@ def test_readable_program() -> None:
     )
     lgp_genome = {
         "params": {
-            "target_registers": jnp.asarray([8, 9, 10, 11, 4]),
-            "x_connections": jnp.asarray([0, 2, 0, 10, 2]),
-            "y_connections": jnp.asarray([3, 3, 1, 1, 10]),
+            "targets": jnp.asarray([8, 9, 10, 11, 4]),
+            "inputs1": jnp.asarray([0, 2, 0, 10, 2]),
+            "inputs2": jnp.asarray([3, 3, 1, 1, 10]),
             "functions": jnp.asarray([2, 2, 0, 2, 1]),
         }
     }
@@ -183,9 +183,9 @@ def test_readable_program() -> None:
     )
     lgp_genome2 = {
         "params": {
-            "target_registers": jnp.asarray([5, 9]),
-            "x_connections": jnp.asarray([0, 0]),
-            "y_connections": jnp.asarray([1, 5]),
+            "targets": jnp.asarray([5, 9]),
+            "inputs1": jnp.asarray([0, 0]),
+            "inputs2": jnp.asarray([1, 5]),
             "functions": jnp.asarray([2, 5]),
         }
     }
@@ -201,9 +201,9 @@ def test_readable_expression() -> None:
     )
     lgp_genome = {
         "params": {
-            "target_registers": jnp.asarray([8, 9, 10, 11, 4]),
-            "x_connections": jnp.asarray([0, 2, 0, 10, 2]),
-            "y_connections": jnp.asarray([6, 3, 1, 1, 10]),
+            "targets": jnp.asarray([8, 9, 10, 11, 4]),
+            "inputs1": jnp.asarray([0, 2, 0, 10, 2]),
+            "inputs2": jnp.asarray([6, 3, 1, 1, 10]),
             "functions": jnp.asarray([2, 2, 0, 2, 1]),
         }
     }
