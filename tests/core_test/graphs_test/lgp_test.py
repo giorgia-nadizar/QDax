@@ -190,3 +190,35 @@ def test_readable_program() -> None:
         }
     }
     print(lgp2.get_readable_program(lgp_genome2))
+
+
+def test_readable_expression() -> None:
+    lgp = LGP(
+        n_inputs=2,
+        n_outputs=4,
+        n_program_lines=5,
+        n_computation_registers=4
+    )
+    lgp_genome = {
+        "params": {
+            "target_registers_genes": jnp.asarray([8, 9, 10, 11, 4]),
+            "x_connections_genes": jnp.asarray([0, 2, 0, 10, 2]),
+            "y_connections_genes": jnp.asarray([6, 3, 1, 1, 10]),
+            "functions_genes": jnp.asarray([2, 2, 0, 2, 1]),
+        }
+    }
+    print(lgp.get_readable_program(lgp_genome), "\n")
+
+    print(lgp.get_readable_expression(lgp_genome), "\n")
+
+    inputs_mapping_fn = lambda x: f"i_{{{x}}}"
+    print(lgp.get_readable_expression(lgp_genome, inputs_mapping=inputs_mapping_fn), "\n")
+
+    inputs_mapping_dict = {0: "a", 1: "b"}
+    print(lgp.get_readable_expression(lgp_genome, inputs_mapping=inputs_mapping_dict), "\n")
+
+    outputs_mapping_fn = lambda x: f"o_{{{x}}}"
+    print(lgp.get_readable_expression(lgp_genome, outputs_mapping=outputs_mapping_fn), "\n")
+
+    outputs_mapping_dict = {0: "x", 1: "y"}
+    print(lgp.get_readable_expression(lgp_genome, outputs_mapping=outputs_mapping_dict), "\n")

@@ -1,6 +1,6 @@
 """Core components of Linear Genetic Programming (LGP) for graph evolution."""
 
-from typing import Callable, Tuple, Optional, Dict
+from typing import Callable, Tuple, Optional, Dict, Union
 
 import jax.numpy as jnp
 import jax.random
@@ -201,6 +201,84 @@ class LGP:
             init_val=(lgp_genome_params, active_lines, registers_mask)
         )
         return active_lines.astype(int)
+
+    def get_readable_expression(
+            self,
+            lgp_genome_params: Genotype,
+            inputs_mapping: Union[Dict[int, str], Callable[[int], str]] = None,
+            outputs_mapping: Union[Dict[int, str], Callable[[int], str]] = None) -> str:
+        """Generate a human-readable symbolic representation of a LGP genome.
+
+            Unary functions are printed in the form:
+                f(x)
+            Binary functions are printed in the form:
+                (x op y)
+            where `op` is the function symbol (e.g., `+`, `*`, `sin`).
+
+            Args:
+                lgp_genome_params: LGP genotype.
+                inputs_mapping (dict[int,str] | callable[[int], str]], optional):
+                    Mapping from input indices to custom names.
+                    - If a dict, keys are input indices
+                    - If a callable, it is called with the input index and must
+                      return the desired string
+                    Defaults to "i0", "i1", ...
+                outputs_mapping (dict[int,str] | callable[[int], str]], optional):
+                    Mapping from output indices to custom names.
+                    - If a dict, keys are output indices
+                    - If a callable, it is called with the output index and must
+                      return the desired string
+                    Defaults to "o0", "o1", ...
+
+            Returns:
+                str: A multi-line string, with one line per output, showing the
+                symbolic expression computed for each LGP output node.
+
+            Example:
+                o0 = (i0+i1)
+                o1 = sin(i2)
+            """
+        inputs_mapping = inputs_mapping or {}
+        if isinstance(inputs_mapping, dict):
+            inputs_mapping_fn = lambda idx: inputs_mapping.get(idx, f"i{idx}")
+        else:
+            inputs_mapping_fn = inputs_mapping
+
+        outputs_mapping = outputs_mapping or {}
+        if isinstance(outputs_mapping, dict):
+            outputs_mapping_fn = lambda idx: outputs_mapping.get(idx, f"o{idx}")
+        else:
+            outputs_mapping_fn = outputs_mapping
+
+        n_in = self.n_inputs + len(self.input_constants)
+        targets = []
+
+        def _replace_lgp_expression(lgp_genes: Genotype,
+                                    reg_idx: int, max_row_idx: int, ) -> str:
+            functions = list(self.function_set.function_set.values())
+            for row_idx in range(max_row_idx - 1, -1, -1):
+                if int(lgp_genes['params']['target_registers_genes'][row_idx]) == reg_idx:
+                    function = functions[lgp_genes["params"]["functions_genes"][row_idx]]
+                    if function.arity == 1:
+                        return f"{function.symbol}({_replace_lgp_expression(lgp_genes, int(lgp_genes['params']['x_connections_genes'][row_idx]), row_idx)})"
+                    else:
+                        return f"({_replace_lgp_expression(lgp_genes, int(lgp_genes['params']['x_connections_genes'][row_idx]), row_idx)}" \
+                               f"{function.symbol}" \
+                               f"{_replace_lgp_expression(lgp_genes, int(lgp_genes['params']['y_connections_genes'][row_idx]), row_idx)})"
+            if reg_idx < self.n_inputs:
+                return inputs_mapping_fn(int(reg_idx))
+            elif reg_idx < n_in:
+                return str(self.input_constants[reg_idx - self.n_inputs])
+            else:
+                return "0"
+
+        for output_idx in range(self.n_outputs):
+            register_idx = self.n_registers - self.n_outputs + output_idx
+            targets.append(
+                f"{outputs_mapping_fn(output_idx)} = {_replace_lgp_expression(lgp_genome_params, register_idx, self.n_program_lines)}"
+            )
+
+        return "\n".join(targets)
 
     def get_readable_program(
             self,
