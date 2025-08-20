@@ -39,6 +39,7 @@ def test_cgp_with_me() -> None:
     policy_graph = CGP(
         n_inputs=env.observation_size,
         n_outputs=env.action_size,
+        weighted_graph=True,
     )
 
     # Init the population of CGP genomes
@@ -181,6 +182,7 @@ def test_cgp_with_me_ask_tell() -> None:
     policy_graph = CGP(
         n_inputs=env.observation_size,
         n_outputs=env.action_size,
+        weighted_graph=True
     )
 
     # Init the population of CGP genomes

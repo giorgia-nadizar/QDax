@@ -13,7 +13,7 @@ def test_genome_bounds() -> None:
     cgp = CGP(
         n_inputs=2,
         n_outputs=1,
-        n_nodes=5
+        n_nodes=5,
     )
     key = jax.random.key(42)
 
@@ -34,6 +34,7 @@ def test_genome_bounds() -> None:
     pytest.assume(jnp.all(initial_cgp_genome["params"]["inputs2"] < connections_bounds))
     pytest.assume(jnp.all(initial_cgp_genome["params"]["functions"] < functions_bound))
     pytest.assume(jnp.all(initial_cgp_genome["params"]["outputs"] < outputs_bound))
+    pytest.assume(jnp.all(initial_cgp_genome["params"]["weights"] == 1))
 
     # mutate genome
     key, mut_key = jax.random.split(key)
@@ -48,6 +49,7 @@ def test_genome_bounds() -> None:
     pytest.assume(jnp.all(mutated_cgp_genome["params"]["inputs2"] < connections_bounds))
     pytest.assume(jnp.all(mutated_cgp_genome["params"]["functions"] < functions_bound))
     pytest.assume(jnp.all(mutated_cgp_genome["params"]["outputs"] < outputs_bound))
+    pytest.assume(jnp.all(initial_cgp_genome["params"]["weights"] == 1))
 
 
 def test_known_genome_execution() -> None:
@@ -70,7 +72,8 @@ def test_known_genome_execution() -> None:
             "inputs1": jnp.asarray([0, 0, 4, 0, 0]),
             "inputs2": jnp.ones(cgp.n_nodes, dtype=jnp.int32),
             "functions": jnp.asarray([0, 0, 2, 0, 0]),
-            "outputs": jnp.asarray([0, 2, 4, 6])
+            "outputs": jnp.asarray([0, 2, 4, 6]),
+            "weights": jnp.ones(cgp.n_nodes),
         }
     }
 
@@ -100,7 +103,8 @@ def test_active_graph() -> None:
             "inputs1": jnp.asarray([0, 0, 4, 0, 0]),
             "inputs2": jnp.asarray([1, 1, 5, 1, 1]),
             "functions": jnp.asarray([0, 0, 4, 0, 0]),
-            "outputs": jnp.asarray([0, 2, 4, 6])
+            "outputs": jnp.asarray([0, 2, 4, 6]),
+            "weights": jnp.ones(cgp.n_nodes),
         }
     }
     expected_active_nodes = jnp.asarray([1, 0, 1, 0, 0])
@@ -130,14 +134,16 @@ def test_readable_expression() -> None:
     cgp = CGP(
         n_inputs=2,
         n_outputs=4,
-        n_nodes=5
+        n_nodes=5,
+        weighted_graph=False
     )
     cgp_genome = {
         "params": {
             "inputs1": jnp.asarray([0, 0, 4, 0, 0]),
             "inputs2": jnp.asarray([1, 1, 5, 1, 1]),
             "functions": jnp.asarray([0, 0, 4, 0, 0]),
-            "outputs": jnp.asarray([0, 2, 4, 6])
+            "outputs": jnp.asarray([0, 2, 4, 6]),
+            "weights": jnp.ones(cgp.n_nodes),
         }
     }
     print(cgp.get_readable_expression(cgp_genome), "\n")
