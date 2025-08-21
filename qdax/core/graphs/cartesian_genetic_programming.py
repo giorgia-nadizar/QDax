@@ -271,9 +271,9 @@ class CGP:
             functions = list(self.function_set.function_set.values())
             gene_idx = idx - n_in
             function = functions[cgp_genes["params"]["functions"][gene_idx]]
-            node_weight = f"{cgp_genes['params']['node_weights'][gene_idx]}*" if self.weighted_nodes else ""
-            x_weight = f"{cgp_genes['params']['input_weights1'][gene_idx]}*" if self.weighted_connections else ""
-            y_weight = f"{cgp_genes['params']['input_weights2'][gene_idx]}*" if self.weighted_connections else ""
+            node_weight = f"{cgp_genes['params']['node_weights'][gene_idx]:.2f}*" if self.weighted_nodes else ""
+            x_weight = f"{cgp_genes['params']['input_weights1'][gene_idx]:.2f}*" if self.weighted_connections else ""
+            y_weight = f"{cgp_genes['params']['input_weights2'][gene_idx]:.2f}*" if self.weighted_connections else ""
             if function.arity == 1:
                 return (f"{node_weight}{function.symbol}({x_weight}"
                         f"{_replace_cgp_expression(cgp_genes, int(cgp_genes['params']['inputs1'][gene_idx]))})")
