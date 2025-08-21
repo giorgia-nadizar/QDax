@@ -88,12 +88,10 @@ class CGP:
         out_mask = (self.n_inputs + len(self.input_constants) + self.n_nodes) * jnp.ones(self.n_outputs)
 
         # generate the random float values for each section of the genome
-        x_key, y_key, f_key, out_key, weights_key = random.split(rngs, 5)
-        random_x = random.uniform(key=x_key, shape=in_mask.shape)
-        random_y = random.uniform(key=y_key, shape=in_mask.shape)
-        random_f = random.uniform(key=f_key, shape=f_mask.shape)
+        n_key, out_key, weights_key = random.split(rngs, 3)
+        random_n = random.uniform(key=n_key, shape=(self.n_nodes * 3,))
+        random_x, random_y, random_f = jnp.split(random_n, 3)
         random_out = random.uniform(key=out_key, shape=out_mask.shape)
-
         random_weights = random.uniform(key=weights_key, shape=(self.n_nodes * 3,)) * 2 - 1
         random_node_weights, random_input_weights1, random_input_weights2 = jnp.split(random_weights, 3)
 
