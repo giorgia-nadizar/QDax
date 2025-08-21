@@ -170,7 +170,7 @@ def test_readable_expression() -> None:
     print(cgp.get_readable_expression(cgp_genome, outputs_mapping=outputs_mapping_dict), "\n")
 
 
-def test_gradient_optimization_of_node_constants() -> None:
+def test_gradient_optimization_of_node_weights() -> None:
     # Generate genome
     cgp = CGP(
         n_inputs=3,
@@ -230,5 +230,75 @@ def test_gradient_optimization_of_node_constants() -> None:
     for i in range(50_000):
         cgp_weights, opt_state, train_loss = step(cgp_genome, cgp_weights, opt_state, observations, target_outputs)
         # if i % 1_000 == 0:
-            # print(f"Step {i}, Loss {train_loss}, Params {cgp_weights}")
+        # print(f"Step {i}, Loss {train_loss}, Params {cgp_weights}")
     print(cgp_weights * active)
+
+
+def test_gradient_optimization_of_connection_weights() -> None:
+    # Generate genome
+    cgp = CGP(
+        n_inputs=3,
+        input_constants=jnp.asarray([]),
+        n_outputs=2,
+        n_nodes=4,
+        weighted_nodes=False,
+        weighted_connections=True
+    )
+    target_weights1 = jnp.asarray([.2, -.5, .4, -.3])
+    target_weights2 = jnp.asarray([-.3, .7, .1, -1.])
+    cgp_genome = {
+        "params": {
+            "inputs1": jax.lax.stop_gradient(jnp.asarray([0, 1, 3, 0])),
+            "inputs2": jax.lax.stop_gradient(jnp.asarray([0, 2, 4, 1])),
+            "functions": jax.lax.stop_gradient(jnp.asarray([6, 2, 0, 0])),
+            "outputs": jax.lax.stop_gradient(jnp.asarray([3, 5])),
+            "node_weights": jnp.ones(cgp.n_nodes),
+            "input_weights1": target_weights1,
+            "input_weights2": target_weights2,
+        }
+    }
+    active = cgp.compute_active_nodes(cgp_genome)
+
+    # Generate synthetic dataset
+    n_samples = 500
+    key = jax.random.key(0)
+    x_key, y_key, z_key, noise_key, weights_key = jax.random.split(key, 5)
+    x = jax.random.uniform(x_key, (n_samples,), minval=0, maxval=2 * jnp.pi)
+    y = jax.random.normal(y_key, (n_samples,))
+    z = jax.random.normal(z_key, (n_samples,))
+    observations = jnp.vstack((x, y, z)).T
+    noise = 0.01 * jax.random.normal(noise_key, (n_samples, cgp.n_outputs))
+    target_outputs = (jax.vmap(cgp.apply, (None, 0, None))
+                      (cgp_genome, observations,
+                       {"input_weights1": target_weights1, "input_weights2": target_weights2}) )
+
+    # Initialize weights to random values
+    cgp_weights = jax.random.uniform(key=weights_key, shape=(cgp.n_nodes * 2,)) * 2 - 1
+    weights1, weights2 = jnp.split(cgp_weights, 2)
+    optimizable_weights = {"input_weights1": weights1, "input_weights2": weights2}
+
+    # Loss = mean squared error
+    def loss_fn(weights_dict, genome, inputs, target_y):
+        pred_y = jax.vmap(cgp.apply, (None, 0, None))(genome, inputs, weights_dict)
+        return jnp.mean((pred_y - target_y) ** 2)
+
+    @jax.jit
+    def step(genome, weights_dict, opt_st, inputs, targets):
+        loss, grads = jax.value_and_grad(loss_fn)(weights_dict, genome, inputs, targets)
+        updates, opt_st = optimizer.update(grads, opt_st)
+        weights_dict = optax.apply_updates(weights_dict, updates)
+        return weights_dict, opt_state, loss
+
+    # Optimizer
+    optimizer = optax.adam(1e-2)
+    opt_state = optimizer.init(optimizable_weights)
+
+    # Training loop
+    for i in range(50_000):
+        optimizable_weights, opt_state, train_loss = step(cgp_genome, optimizable_weights, opt_state, observations, target_outputs)
+        # if i % 1_000 == 0:
+        # print(f"Step {i}, Loss {train_loss}, Params {cgp_weights}")
+    print(train_loss)
+    print(cgp.get_readable_expression(cgp_genome))
+    print(optimizable_weights["input_weights1"] * active, target_weights1 * active)
+    print(optimizable_weights["input_weights2"] * active, target_weights2 * active)
