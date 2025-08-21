@@ -76,7 +76,9 @@ class CGP:
                     - `"inputs2"`
                     - `"functions"`
                     - `"outputs"`
-                    - `"weights"`
+                    - `"node_weights"`
+                    - `"input_weights1"`
+                    - `"input_weights2"`
                 The encoding is inspired by that of MLPs.
             """
         # determine bounds for genes for each section of the genome
@@ -123,7 +125,8 @@ class CGP:
 
             Args:
                 cgp_genome_params: dictionary of CGP genome parameters.
-                weights: array of weights for each node, defaults to the CGP weights (or 1 if not weighted).
+                weights: dictionary of weights for nodes and/or connections,
+                    defaults to the CGP weights (or 1 if not weighted).
                 obs: problem inputs/observation.
 
             Returns:
