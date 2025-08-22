@@ -6,7 +6,7 @@ from qdax.core.graphs.linear_genetic_programming import LGP, lgp_mutation, lgp_c
 
 
 def test_genome_bounds() -> None:
-    """Test that a CGP genome has all elements in the correct bounds.
+    """Test that a LGP genome has all elements in the correct bounds.
     Tests both at initialization and after mutation.
     """
     # define genome structure
@@ -149,7 +149,7 @@ def test_active_lines_jit() -> None:
         n_outputs=2,
     )
 
-    # Init the population of CGP genomes
+    # Init the population of LGP genomes
     key, subkey = jax.random.split(key)
     keys = jax.random.split(subkey, num=10)
     init_lgp_genomes = jax.vmap(lgp.init)(keys)
