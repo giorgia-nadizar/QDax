@@ -1,5 +1,6 @@
 import jax
 import jax.numpy as jnp
+import optax
 import pytest
 
 from qdax.core.graphs.linear_genetic_programming import LGP, lgp_mutation, lgp_crossover
@@ -256,3 +257,71 @@ def test_readable_expression() -> None:
 
     outputs_mapping_dict = {0: "x", 1: "y"}
     print(lgp.get_readable_expression(lgp_genome, outputs_mapping=outputs_mapping_dict), "\n")
+
+
+def test_gradient_optimization_of_function_weights() -> None:
+    # Generate genome
+    lgp = LGP(
+        n_inputs=3,
+        input_constants=jnp.asarray([]),
+        n_outputs=2,
+        n_computation_registers=2,
+        n_program_lines=4,
+        weighted_functions=True,
+        weighted_inputs=False
+    )
+    target_weights = jnp.asarray([.2, -.5, .4, -.3])
+    lgp_genome = {
+        "genes": {
+            "targets": jax.lax.stop_gradient(jnp.asarray([4, 5, 3, 6])),
+            "inputs1": jax.lax.stop_gradient(jnp.asarray([1, 0, 2, 4])),
+            "inputs2": jax.lax.stop_gradient(jnp.asarray([2, 3, 4, 5])),
+            "functions": jax.lax.stop_gradient(jnp.asarray([2, 6, 3, 0])),
+        },
+        "weights": {
+            "functions": target_weights,
+            "inputs1": jnp.ones(lgp.n_program_lines),
+            "inputs2": jnp.ones(lgp.n_program_lines),
+        }
+    }
+    active = lgp.compute_active_lines(lgp_genome)
+    print(lgp.get_readable_expression(lgp_genome), "\n")
+    print(target_weights * active)
+
+    # Generate synthetic dataset
+    n_samples = 500
+    key = jax.random.key(0)
+    x_key, y_key, z_key, noise_key, weights_key = jax.random.split(key, 5)
+    x = jax.random.uniform(x_key, (n_samples,), minval=0, maxval=2 * jnp.pi)
+    y = jax.random.normal(y_key, (n_samples,))
+    z = jax.random.normal(z_key, (n_samples,))
+    observations = jnp.vstack((x, y, z)).T
+    noise = 0.01 * jax.random.normal(noise_key, (n_samples, lgp.n_outputs))
+    target_outputs = (jax.vmap(lgp.apply, (None, 0, None))
+                      (lgp_genome, observations, {"functions": target_weights}) + noise)
+
+    # Initialize weights to random values
+    lgp_weights = jax.random.uniform(key=weights_key, shape=(lgp.n_program_lines,)) * 2 - 1
+
+    # Loss = mean squared error
+    def loss_fn(weights, genome, inputs, target_y):
+        pred_y = jax.vmap(lgp.apply, (None, 0, None))(genome, inputs, {"functions": weights})
+        return jnp.mean((pred_y - target_y) ** 2)
+
+    @jax.jit
+    def step(genome, weights, opt_st, inputs, targets):
+        loss, grads = jax.value_and_grad(loss_fn)(weights, genome, inputs, targets)
+        updates, opt_st = optimizer.update(grads, opt_st)
+        params = optax.apply_updates(weights, updates)
+        return params, opt_state, loss
+
+    # Optimizer
+    optimizer = optax.adam(1e-3)
+    opt_state = optimizer.init(lgp_weights)
+
+    # Training loop
+    for i in range(50_000):
+        lgp_weights, opt_state, train_loss = step(lgp_genome, lgp_weights, opt_state, observations, target_outputs)
+        # if i % 1_000 == 0:
+        # print(f"Step {i}, Loss {train_loss}, Params {lgp_weights}")
+    print(lgp_weights * active)

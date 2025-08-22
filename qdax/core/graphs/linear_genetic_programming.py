@@ -281,9 +281,9 @@ class LGP:
             for row_idx in range(max_row_idx - 1, -1, -1):
                 if int(lgp_genes['genes']['targets'][row_idx]) == reg_idx:
                     function = functions[lgp_genes["genes"]["functions"][row_idx]]
-                    line_weight = f"{lgp_genes['weights']['functions'][lgp_genes]:.2f}*" if self.weighted_functions else ""
-                    x_weight = f"{lgp_genes['weights']['inputs1'][lgp_genes]:.2f}*" if self.weighted_inputs else ""
-                    y_weight = f"{lgp_genes['weights']['inputs2'][lgp_genes]:.2f}*" if self.weighted_inputs else ""
+                    line_weight = f"{lgp_genes['weights']['functions'][row_idx]:.2f}*" if self.weighted_functions else ""
+                    x_weight = f"{lgp_genes['weights']['inputs1'][row_idx]:.2f}*" if self.weighted_inputs else ""
+                    y_weight = f"{lgp_genes['weights']['inputs2'][row_idx]:.2f}*" if self.weighted_inputs else ""
                     if function.arity == 1:
                         return (f"{line_weight}{function.symbol}({x_weight}"
                                 f"{_replace_lgp_expression(lgp_genes, int(lgp_genes['genes']['inputs1'][row_idx]), row_idx)})")
