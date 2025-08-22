@@ -35,7 +35,7 @@ def test_genome_bounds() -> None:
     pytest.assume(jnp.all(initial_cgp_genome["genes"]["inputs2"] < connections_bounds))
     pytest.assume(jnp.all(initial_cgp_genome["genes"]["functions"] < functions_bound))
     pytest.assume(jnp.all(initial_cgp_genome["genes"]["outputs"] < outputs_bound))
-    pytest.assume(jnp.all(initial_cgp_genome["weights"]["nodes"] == 1))
+    pytest.assume(jnp.all(initial_cgp_genome["weights"]["functions"] == 1))
     pytest.assume(jnp.all(initial_cgp_genome["weights"]["inputs1"] == 1))
     pytest.assume(jnp.all(initial_cgp_genome["weights"]["inputs2"] == 1))
 
@@ -52,7 +52,7 @@ def test_genome_bounds() -> None:
     pytest.assume(jnp.all(mutated_cgp_genome["genes"]["inputs2"] < connections_bounds))
     pytest.assume(jnp.all(mutated_cgp_genome["genes"]["functions"] < functions_bound))
     pytest.assume(jnp.all(mutated_cgp_genome["genes"]["outputs"] < outputs_bound))
-    pytest.assume(jnp.all(mutated_cgp_genome["weights"]["nodes"] == 1))
+    pytest.assume(jnp.all(mutated_cgp_genome["weights"]["functions"] == 1))
     pytest.assume(jnp.all(mutated_cgp_genome["weights"]["inputs1"] == 1))
     pytest.assume(jnp.all(mutated_cgp_genome["weights"]["inputs2"] == 1))
 
@@ -80,9 +80,9 @@ def test_known_genome_execution() -> None:
             "outputs": jnp.asarray([0, 2, 4, 6]),
         },
         "weights": {
-            "nodes": jnp.ones(cgp.n_nodes),
             "inputs1": jnp.ones(cgp.n_nodes),
             "inputs2": jnp.ones(cgp.n_nodes),
+            "functions": jnp.ones(cgp.n_nodes),
         }
     }
 
@@ -114,7 +114,7 @@ def test_active_graph() -> None:
             "functions": jnp.asarray([0, 0, 4, 0, 0]),
             "outputs": jnp.asarray([0, 2, 4, 6]), },
         "weights": {
-            "nodes": jnp.ones(cgp.n_nodes),
+            "functions": jnp.ones(cgp.n_nodes),
             "inputs1": jnp.ones(cgp.n_nodes),
             "inputs2": jnp.ones(cgp.n_nodes), }
     }
@@ -154,9 +154,9 @@ def test_readable_expression() -> None:
             "functions": jnp.asarray([0, 0, 4, 0, 0]),
             "outputs": jnp.asarray([0, 2, 4, 6]), },
         "weights": {
-            "nodes": jnp.ones(cgp.n_nodes),
             "inputs1": jnp.ones(cgp.n_nodes),
             "inputs2": jnp.ones(cgp.n_nodes),
+            "functions": jnp.ones(cgp.n_nodes),
         }
     }
     print(cgp.get_readable_expression(cgp_genome), "\n")
@@ -181,7 +181,7 @@ def test_gradient_optimization_of_node_weights() -> None:
         input_constants=jnp.asarray([]),
         n_outputs=2,
         n_nodes=4,
-        weighted_nodes=True,
+        weighted_functions=True,
         weighted_connections=False
     )
     target_weights = jnp.asarray([.2, -.5, .4, -.3])
@@ -193,7 +193,7 @@ def test_gradient_optimization_of_node_weights() -> None:
             "outputs": jax.lax.stop_gradient(jnp.asarray([3, 5])),
         },
         "weights": {
-            "nodes": target_weights,
+            "functions": target_weights,
             "inputs1": jnp.ones(cgp.n_nodes),
             "inputs2": jnp.ones(cgp.n_nodes),
         }
@@ -211,14 +211,14 @@ def test_gradient_optimization_of_node_weights() -> None:
     observations = jnp.vstack((x, y, z)).T
     noise = 0.01 * jax.random.normal(noise_key, (n_samples, cgp.n_outputs))
     target_outputs = (jax.vmap(cgp.apply, (None, 0, None))
-                      (cgp_genome, observations, {"nodes": target_weights}) + noise)
+                      (cgp_genome, observations, {"functions": target_weights}) + noise)
 
     # Initialize weights to random values
     cgp_weights = jax.random.uniform(key=weights_key, shape=(cgp.n_nodes,)) * 2 - 1
 
     # Loss = mean squared error
     def loss_fn(weights, genome, inputs, target_y):
-        pred_y = jax.vmap(cgp.apply, (None, 0, None))(genome, inputs, {"nodes": weights})
+        pred_y = jax.vmap(cgp.apply, (None, 0, None))(genome, inputs, {"functions": weights})
         return jnp.mean((pred_y - target_y) ** 2)
 
     @jax.jit
@@ -247,7 +247,7 @@ def test_gradient_optimization_of_connection_weights() -> None:
         input_constants=jnp.asarray([]),
         n_outputs=2,
         n_nodes=4,
-        weighted_nodes=False,
+        weighted_functions=False,
         weighted_connections=True
     )
     target_weights1 = jnp.asarray([.2, -.5, .4, -.3])
@@ -259,9 +259,9 @@ def test_gradient_optimization_of_connection_weights() -> None:
             "functions": jax.lax.stop_gradient(jnp.asarray([6, 2, 0, 0])),
             "outputs": jax.lax.stop_gradient(jnp.asarray([3, 5])), },
         "weights": {
-            "nodes": jnp.ones(cgp.n_nodes),
             "inputs1": target_weights1,
             "inputs2": target_weights2,
+            "functions": jnp.ones(cgp.n_nodes),
         }
     }
     active = cgp.compute_active_nodes(cgp_genome)
