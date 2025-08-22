@@ -83,6 +83,11 @@ def test_known_genome_execution() -> None:
             "inputs1": jnp.asarray([0, 2, 0, 10]),
             "inputs2": jnp.asarray([3, 3, 1, 1]),
             "functions": jnp.asarray([2, 2, 0, 2]),
+        },
+        "weights": {
+            "lines": jnp.ones((lgp.n_program_lines,)),
+            "inputs1": jnp.ones((lgp.n_program_lines,)),
+            "inputs2": jnp.ones((lgp.n_program_lines,)),
         }
     }
 
@@ -114,6 +119,11 @@ def test_active_lines() -> None:
             "inputs1": jnp.asarray([0, 2, 0, 10, 2]),
             "inputs2": jnp.asarray([3, 3, 1, 1, 10]),
             "functions": jnp.asarray([2, 2, 0, 2, 1]),
+        },
+        "weights": {
+            "lines": jnp.ones((lgp.n_program_lines,)),
+            "inputs1": jnp.ones((lgp.n_program_lines,)),
+            "inputs2": jnp.ones((lgp.n_program_lines,)),
         }
     }
     expected_active_lines = jnp.asarray([1, 1, 1, 1, 0])
@@ -133,6 +143,11 @@ def test_active_lines() -> None:
             "inputs1": jnp.asarray([0, 0]),
             "inputs2": jnp.asarray([1, 5]),
             "functions": jnp.asarray([2, 5]),
+        },
+        "weights": {
+            "lines": jnp.ones((lgp2.n_program_lines,)),
+            "inputs1": jnp.ones((lgp2.n_program_lines,)),
+            "inputs2": jnp.ones((lgp2.n_program_lines,)),
         }
     }
     expected_active_lines2 = jnp.asarray([0, 1])
@@ -171,6 +186,11 @@ def test_readable_program() -> None:
             "inputs1": jnp.asarray([0, 2, 0, 10, 2]),
             "inputs2": jnp.asarray([3, 3, 1, 1, 10]),
             "functions": jnp.asarray([2, 2, 0, 2, 1]),
+        },
+        "weights": {
+            "lines": jnp.ones((lgp.n_program_lines,)),
+            "inputs1": jnp.ones((lgp.n_program_lines,)),
+            "inputs2": jnp.ones((lgp.n_program_lines,)),
         }
     }
     print(lgp.get_readable_program(lgp_genome))
@@ -205,6 +225,11 @@ def test_readable_expression() -> None:
             "inputs1": jnp.asarray([0, 2, 0, 10, 2]),
             "inputs2": jnp.asarray([6, 3, 1, 1, 10]),
             "functions": jnp.asarray([2, 2, 0, 2, 1]),
+        },
+        "weights": {
+            "lines": jnp.ones((lgp.n_program_lines,)),
+            "inputs1": jnp.ones((lgp.n_program_lines,)),
+            "inputs2": jnp.ones((lgp.n_program_lines,)),
         }
     }
     print(lgp.get_readable_program(lgp_genome), "\n")
