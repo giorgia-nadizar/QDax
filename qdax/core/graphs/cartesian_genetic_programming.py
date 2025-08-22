@@ -76,9 +76,10 @@ class CGP:
                     - `"inputs2"`
                     - `"functions"`
                     - `"outputs"`
-                    - `"node_weights"`
-                    - `"input_weights1"`
-                    - `"input_weights2"`
+                and the `"weights`" key with weights sections as floating point JAX arrays:
+                    - `"nodes"`
+                    - `"inputs1"`
+                    - `"inputs2"`
                 The encoding is inspired by that of MLPs.
             """
         # determine bounds for genes for each section of the genome
@@ -102,10 +103,12 @@ class CGP:
                 "inputs2": jnp.floor(random_y * in_mask).astype(int),
                 "functions": jnp.floor(random_f * f_mask).astype(int),
                 "outputs": out_mask if self.fixed_outputs else jnp.floor(random_out * out_mask).astype(int),
-                "node_weights": random_node_weights if self.weighted_nodes else jnp.ones_like(random_node_weights),
-                "input_weights1": random_input_weights1 if self.weighted_connections else jnp.ones_like(
+            },
+            "weights": {
+                "nodes": random_node_weights if self.weighted_nodes else jnp.ones_like(random_node_weights),
+                "inputs1": random_input_weights1 if self.weighted_connections else jnp.ones_like(
                     random_input_weights1),
-                "input_weights2": random_input_weights2 if self.weighted_connections else jnp.ones_like(
+                "inputs2": random_input_weights2 if self.weighted_connections else jnp.ones_like(
                     random_input_weights2)
             }
         }
@@ -133,9 +136,7 @@ class CGP:
             """
 
         weights = weights or {}
-        node_weights = weights.get("node_weights", cgp_genome_params["params"]["node_weights"])
-        input_weights1 = weights.get("input_weights1", cgp_genome_params["params"]["input_weights1"])
-        input_weights2 = weights.get("input_weights2", cgp_genome_params["params"]["input_weights2"])
+        weights = {**cgp_genome_params["weights"], **weights}
 
         # define function to update buffer in a certain position: get inputs from the x and y connections
         # then apply the function
@@ -147,9 +148,9 @@ class CGP:
             n_in = len(buff) - len(cgp_genes["params"]["inputs1"])
             idx = buffer_idx - n_in
             f_idx = cgp_genes["params"]["functions"].at[idx].get()
-            x_arg = buff.at[cgp_genes["params"]["inputs1"].at[idx].get()].get() * input_weights1.at[idx].get()
-            y_arg = buff.at[cgp_genes["params"]["inputs2"].at[idx].get()].get() * input_weights2.at[idx].get()
-            f_computed = self.function_set.apply(f_idx, x_arg, y_arg) * node_weights.at[idx].get()
+            x_arg = buff.at[cgp_genes["params"]["inputs1"].at[idx].get()].get() * weights["inputs1"].at[idx].get()
+            y_arg = buff.at[cgp_genes["params"]["inputs2"].at[idx].get()].get() * weights["inputs2"].at[idx].get()
+            f_computed = self.function_set.apply(f_idx, x_arg, y_arg) * weights["nodes"].at[idx].get()
             buff = buff.at[buffer_idx].set(f_computed)
             return cgp_genes, buff
 
@@ -272,9 +273,9 @@ class CGP:
             functions = list(self.function_set.function_set.values())
             gene_idx = idx - n_in
             function = functions[cgp_genes["params"]["functions"][gene_idx]]
-            node_weight = f"{cgp_genes['params']['node_weights'][gene_idx]:.2f}*" if self.weighted_nodes else ""
-            x_weight = f"{cgp_genes['params']['input_weights1'][gene_idx]:.2f}*" if self.weighted_connections else ""
-            y_weight = f"{cgp_genes['params']['input_weights2'][gene_idx]:.2f}*" if self.weighted_connections else ""
+            node_weight = f"{cgp_genes['weights']['nodes'][gene_idx]:.2f}*" if self.weighted_nodes else ""
+            x_weight = f"{cgp_genes['weights']['inputs1'][gene_idx]:.2f}*" if self.weighted_connections else ""
+            y_weight = f"{cgp_genes['weights']['inputs2'][gene_idx]:.2f}*" if self.weighted_connections else ""
             if function.arity == 1:
                 return (f"{node_weight}{function.symbol}({x_weight}"
                         f"{_replace_cgp_expression(cgp_genes, int(cgp_genes['params']['inputs1'][gene_idx]))})")
@@ -370,8 +371,10 @@ def cgp_mutation(
                                          donor_genotype["params"]["outputs"],
                                          out_key,
                                          p_mut_outputs),
-            "node_weights": genotype["params"]["node_weights"] + cgp.weighted_nodes * node_w_noise,
-            "input_weights1": genotype["params"]["input_weights1"] + cgp.weighted_connections * i1_w_noise,
-            "input_weights2": genotype["params"]["input_weights2"] + cgp.weighted_connections * i2_w_noise,
+        },
+        "weights": {
+            "nodes": genotype["weights"]["nodes"] + cgp.weighted_nodes * node_w_noise,
+            "inputs1": genotype["weights"]["inputs1"] + cgp.weighted_connections * i1_w_noise,
+            "inputs2": genotype["weights"]["inputs2"] + cgp.weighted_connections * i2_w_noise,
         }
     }
