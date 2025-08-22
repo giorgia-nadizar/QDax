@@ -119,7 +119,7 @@ def test_active_graph() -> None:
             "inputs2": jnp.ones(cgp.n_nodes), }
     }
     expected_active_nodes = jnp.asarray([1, 0, 1, 0, 0])
-    active_nodes = cgp.compute_active_nodes(cgp_genome)
+    active_nodes = cgp.compute_active_mask(cgp_genome)
     pytest.assume(jnp.array_equal(active_nodes, expected_active_nodes))
 
 
@@ -138,7 +138,7 @@ def test_active_graph_jit() -> None:
     init_cgp_genomes = jax.vmap(cgp.init)(keys)
 
     # Check it runs
-    jax.vmap(cgp.compute_active_nodes)(init_cgp_genomes)
+    jax.vmap(cgp.compute_active_mask)(init_cgp_genomes)
 
 
 def test_readable_expression() -> None:
@@ -198,7 +198,7 @@ def test_gradient_optimization_of_function_weights() -> None:
             "inputs2": jnp.ones(cgp.n_nodes),
         }
     }
-    active = cgp.compute_active_nodes(cgp_genome)
+    active = cgp.compute_active_mask(cgp_genome)
     print(target_weights * active)
 
     # Generate synthetic dataset
@@ -266,7 +266,7 @@ def test_gradient_optimization_of_input_weights() -> None:
             "functions": jnp.ones(cgp.n_nodes),
         }
     }
-    active = cgp.compute_active_nodes(cgp_genome)
+    active = cgp.compute_active_mask(cgp_genome)
 
     # Generate synthetic dataset
     n_samples = 500

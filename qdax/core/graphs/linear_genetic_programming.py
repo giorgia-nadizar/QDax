@@ -1,6 +1,6 @@
 """Core components of Linear Genetic Programming (LGP) for graph evolution."""
 
-from typing import Callable, Tuple, Optional, Dict, Union
+from typing import Callable, Tuple, Optional, Dict, List
 
 import jax.numpy as jnp
 import jax.random
@@ -8,52 +8,24 @@ from flax import struct
 from jax import random, jit
 from jax.lax import fori_loop
 
-from qdax.core.graphs.utils import _mutate_subgenome
-from qdax.core.graphs.functions import FunctionSet
+from qdax.core.graphs.graph_genetic_programming import GGP, _mutate_subgenome
 from qdax.custom_types import RNGKey, Genotype, Mask
 
 
 @struct.dataclass
-class LGP:
-    """Linear Genetic Programming (LGP) representation.
+class LGP(GGP):
+    """Linear Genetic Programming (LGP).
 
-    The LGP encoding uses a sequence of instructions (program lines) that
-    operate on a set of registers to compute outputs. Each instruction
-    selects one or more source operands (from input registers, constant
-    registers, computation registers, or output registers), applies a function
-    from the provided function set, and stores the result in a target register.
-
+    Uses a sequence of program lines (instructions) that operate on registers.
     The program executes sequentially, line by line, with later instructions
-    potentially overwriting the results of earlier ones. The outputs of the
-    program are taken from the last registers (i.e., output registers after execution.
-    An optional output wrapper function (e.g., `tanh`) can be applied to
-    constrain the final outputs to a desired range.
+    potentially overwriting earlier results.
 
-    Args:
-        n_inputs: number of input values provided to the program (excluding constants).
-            Typically set to the environment’s observation size, e.g., `env.observation_size`.
-        n_outputs: number of outputs produced by the LGP individual.
-            Typically set to the environment’s action size, e.g., `env.action_size`.
-        n_computation_registers: number of internal registers available for intermediate
-            computations. These registers are overwritten during program execution. Additional
-            n_outputs_registers are also available for computation.
+    Extra Args:
+        n_computation_registers: number of internal registers for intermediate computations.
         n_program_lines: number of instructions in the program.
-        function_set: set of allowed functions that instructions in the program can use.
-        input_constants: array of constant values that can be used as additional inputs.
-        outputs_wrapper: function applied to the outputs of the LGP program
-            before returning them to bound them in a certain range.
-        weighted_functions: whether the genome will contain weighting factors for each program line.
-        weighted_inputs: whether the genome will contain weighting factors for each connection.
     """
-    n_inputs: int
-    n_outputs: int
     n_computation_registers: int = 5
     n_program_lines: int = 15
-    function_set: FunctionSet = FunctionSet()
-    input_constants: jnp.ndarray = jnp.asarray([0.1, 1.0])
-    outputs_wrapper: Callable = jnp.tanh
-    weighted_functions: bool = False
-    weighted_inputs: bool = False
 
     @property
     def n_registers(self) -> int:
@@ -100,7 +72,6 @@ class LGP:
         random_lines = random.uniform(key=lines_key, shape=(self.n_program_lines * 4,))
         random_targets, random_x, random_y, random_f = jnp.split(random_lines, 4)
         random_weights = random.uniform(key=weights_key, shape=(self.n_program_lines * 3,)) * 2 - 1
-        random_line_weights, random_input_weights1, random_input_weights2 = jnp.split(random_weights, 3)
 
         # rescale, cast to integer and store the random genome parts
         return {
@@ -110,13 +81,7 @@ class LGP:
                 "inputs2": jnp.floor(random_y * rhs_mask).astype(int),
                 "functions": jnp.floor(random_f * f_mask).astype(int)
             },
-            "weights": {
-                "inputs1": random_input_weights1 if self.weighted_inputs else jnp.ones_like(
-                    random_input_weights1),
-                "inputs2": random_input_weights2 if self.weighted_inputs else jnp.ones_like(
-                    random_input_weights2),
-                "functions": random_line_weights if self.weighted_functions else jnp.ones_like(random_line_weights)
-            }
+            "weights": self._init_weights(random_weights),
         }
 
     def apply(self,
@@ -132,6 +97,8 @@ class LGP:
 
             Args:
                 lgp_genome_params: dictionary of LGP genome parameters.
+                weights: dictionary of weights for nodes and/or connections,
+                    defaults to the CGP weights (or 1 if not weighted).
                 obs: problem inputs/observation.
 
             Returns:
@@ -152,14 +119,7 @@ class LGP:
                               ) -> Tuple[Genotype, jnp.ndarray]:
             lgp_genes, regs = carry
             target_register_idx = lgp_genes["genes"]["targets"].at[line_idx].get()
-            f_idx = lgp_genes["genes"]["functions"].at[line_idx].get()
-            x_arg = regs.at[lgp_genes["genes"]["inputs1"].at[line_idx].get()].get() * weights["inputs1"].at[
-                line_idx].get()
-            y_arg = regs.at[lgp_genes["genes"]["inputs2"].at[line_idx].get()].get() * weights["inputs2"].at[
-                line_idx].get()
-            f_computed = self.function_set.apply(f_idx, x_arg, y_arg) * weights["functions"].at[line_idx].get()
-            regs = regs.at[target_register_idx].set(f_computed)
-            return lgp_genes, regs
+            return self._update_memory(lgp_genes, weights, regs, line_idx, target_register_idx)
 
         # initialize the registers with inputs and constants and zeros for remaining registers
         registers = jnp.concatenate(
@@ -175,7 +135,7 @@ class LGP:
         # apply wrapper to constraint the outputs in the correct domain
         return self.outputs_wrapper(outputs)
 
-    def compute_active_lines(
+    def compute_active_mask(
             self,
             lgp_genome_params: Genotype,
     ) -> Mask:
@@ -224,11 +184,11 @@ class LGP:
         )
         return active_lines.astype(int)
 
-    def get_readable_expression(
+    def _get_readable_expression(
             self,
             lgp_genome_params: Genotype,
-            inputs_mapping: Union[Dict[int, str], Callable[[int], str]] = None,
-            outputs_mapping: Union[Dict[int, str], Callable[[int], str]] = None) -> str:
+            inputs_mapping_fn: Callable[[int], str],
+            outputs_mapping_fn: Callable[[int], str], ) -> List[str]:
         """Generate a human-readable symbolic representation of a LGP genome.
 
             Unary functions are printed in the form:
@@ -239,39 +199,9 @@ class LGP:
 
             Args:
                 lgp_genome_params: LGP genotype.
-                inputs_mapping (dict[int,str] | callable[[int], str]], optional):
-                    Mapping from input indices to custom names.
-                    - If a dict, keys are input indices
-                    - If a callable, it is called with the input index and must
-                      return the desired string
-                    Defaults to "i0", "i1", ...
-                outputs_mapping (dict[int,str] | callable[[int], str]], optional):
-                    Mapping from output indices to custom names.
-                    - If a dict, keys are output indices
-                    - If a callable, it is called with the output index and must
-                      return the desired string
-                    Defaults to "o0", "o1", ...
-
-            Returns:
-                str: A multi-line string, with one line per output, showing the
-                symbolic expression computed for each LGP output node.
-
-            Example:
-                o0 = (i0+i1)
-                o1 = sin(i2)
+                inputs_mapping_fn: Mapping from input indices to custom names.
+                outputs_mapping_fn Mapping from output indices to custom names.
             """
-        inputs_mapping = inputs_mapping or {}
-        if isinstance(inputs_mapping, dict):
-            inputs_mapping_fn = lambda idx: inputs_mapping.get(idx, f"i{idx}")
-        else:
-            inputs_mapping_fn = inputs_mapping
-
-        outputs_mapping = outputs_mapping or {}
-        if isinstance(outputs_mapping, dict):
-            outputs_mapping_fn = lambda idx: outputs_mapping.get(idx, f"o{idx}")
-        else:
-            outputs_mapping_fn = outputs_mapping
-
         n_in = self.n_inputs + len(self.input_constants)
         targets = []
 
@@ -281,9 +211,7 @@ class LGP:
             for row_idx in range(max_row_idx - 1, -1, -1):
                 if int(lgp_genes['genes']['targets'][row_idx]) == reg_idx:
                     function = functions[lgp_genes["genes"]["functions"][row_idx]]
-                    line_weight = f"{lgp_genes['weights']['functions'][row_idx]:.2f}*" if self.weighted_functions else ""
-                    x_weight = f"{lgp_genes['weights']['inputs1'][row_idx]:.2f}*" if self.weighted_inputs else ""
-                    y_weight = f"{lgp_genes['weights']['inputs2'][row_idx]:.2f}*" if self.weighted_inputs else ""
+                    line_weight, x_weight, y_weight = self._weights_representations(lgp_genes, row_idx)
                     if function.arity == 1:
                         return (f"{line_weight}{function.symbol}({x_weight}"
                                 f"{_replace_lgp_expression(lgp_genes, int(lgp_genes['genes']['inputs1'][row_idx]), row_idx)})")
@@ -305,7 +233,7 @@ class LGP:
                 f"{outputs_mapping_fn(output_idx)} = {self.outputs_wrapper.__name__}({_replace_lgp_expression(lgp_genome_params, register_idx, self.n_program_lines)})"
             )
 
-        return "\n".join(targets)
+        return targets
 
     def get_readable_program(
             self,
@@ -348,7 +276,7 @@ class LGP:
                          f"r[{list(range(self.n_inputs, self.n_inputs + len(self.input_constants)))}] = {self.input_constants}"]
 
         functions = list(self.function_set.function_set.values())
-        active_lines = self.compute_active_lines(lgp_genome_params)
+        active_lines = self.compute_active_mask(lgp_genome_params)
 
         # execution
         for line_idx in range(self.n_program_lines):

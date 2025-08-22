@@ -1,57 +1,30 @@
 """Core components of Cartesian Genetic Programming (CGP) for graph evolution."""
 
-from typing import Callable, Dict, Tuple, Optional, Union
+from typing import Callable, Dict, Tuple, Optional, List
 
 import jax.numpy as jnp
 from flax import struct
 from jax import random, jit
 from jax.lax import fori_loop
 
-from qdax.core.graphs.functions import FunctionSet
-from qdax.core.graphs.utils import _mutate_subgenome
+from qdax.core.graphs.graph_genetic_programming import GGP, _mutate_subgenome
 from qdax.custom_types import RNGKey, Genotype, Mask
 
 
 @struct.dataclass
-class CGP:
-    """Cartesian Genetic Programming (CGP) representation.
+class CGP(GGP):
+    """Cartesian Genetic Programming (CGP).
 
-    The CGP encoding uses a fixed-length integer genome to describe a
-    directed acyclic graph of computational nodes arranged in a single row
-    (1D grid). Each node has up to two inputs, chosen from problem inputs,
-    constant values, or outputs of earlier nodes, and applies a function
-    from the provided function set.
+    Uses a fixed-length integer genome describing a directed acyclic graph
+    of computational nodes arranged in a row (1D grid).
 
-    Problem outputs are taken from specific nodes in the graph. These
-    connections can be evolved or fixed to the last nodes.
-    An optional output wrapper function (e.g., `tanh`) can be applied
-    to constrain the final outputs to a desired range.
-
-    Args:
-        n_inputs: number of input values provided to the graph (excluding constants).
-            Typically set to the environment’s observation size, e.g., `env.observation_size`.
-        n_outputs: number of outputs produced by the CGP individual.
-            Typically set to the environment’s action size, e.g., `env.action_size`.
+    Extra Args:
         n_nodes: number of computational nodes in the graph.
-        function_set: set of allowed functions that nodes in the graph can use.
-        input_constants: array of constant values that can be used as inputs
-            alongside the external inputs.
-        outputs_wrapper: function applied to the outputs of the CGP graph+
-            before returning them to bound them in a certain range.
-        fixed_outputs: whether the output nodes are fixed in their connections
-            (last nodes in the sequence) or can be evolved.
-        weighted_functions: whether the genome will contain weighting factors for each node.
-        weighted_inputs: whether the genome will contain weighting factors for each connection.
+        fixed_outputs: whether output nodes are fixed (last nodes) or can be evolved.
     """
-    n_inputs: int
-    n_outputs: int
+
     n_nodes: int = 50
-    function_set: FunctionSet = FunctionSet()
-    input_constants: jnp.ndarray = jnp.asarray([0.1, 1.0])
-    outputs_wrapper: Callable = jnp.tanh
     fixed_outputs: bool = False
-    weighted_functions: bool = False
-    weighted_inputs: bool = False
 
     @property
     def buffer_size(self) -> int:
@@ -94,7 +67,6 @@ class CGP:
         random_x, random_y, random_f = jnp.split(random_n, 3)
         random_out = random.uniform(key=out_key, shape=out_mask.shape)
         random_weights = random.uniform(key=weights_key, shape=(self.n_nodes * 3,)) * 2 - 1
-        random_node_weights, random_input_weights1, random_input_weights2 = jnp.split(random_weights, 3)
 
         # rescale, cast to integer and store the random genome parts
         return {
@@ -104,13 +76,7 @@ class CGP:
                 "functions": jnp.floor(random_f * f_mask).astype(int),
                 "outputs": out_mask if self.fixed_outputs else jnp.floor(random_out * out_mask).astype(int),
             },
-            "weights": {
-                "functions": random_node_weights if self.weighted_functions else jnp.ones_like(random_node_weights),
-                "inputs1": random_input_weights1 if self.weighted_inputs else jnp.ones_like(
-                    random_input_weights1),
-                "inputs2": random_input_weights2 if self.weighted_inputs else jnp.ones_like(
-                    random_input_weights2)
-            }
+            "weights": self._init_weights(random_weights),
         }
 
     def apply(self,
@@ -147,12 +113,7 @@ class CGP:
             cgp_genes, buff = carry
             n_in = len(buff) - len(cgp_genes["genes"]["inputs1"])
             idx = buffer_idx - n_in
-            f_idx = cgp_genes["genes"]["functions"].at[idx].get()
-            x_arg = buff.at[cgp_genes["genes"]["inputs1"].at[idx].get()].get() * weights["inputs1"].at[idx].get()
-            y_arg = buff.at[cgp_genes["genes"]["inputs2"].at[idx].get()].get() * weights["inputs2"].at[idx].get()
-            f_computed = self.function_set.apply(f_idx, x_arg, y_arg) * weights["functions"].at[idx].get()
-            buff = buff.at[buffer_idx].set(f_computed)
-            return cgp_genes, buff
+            return self._update_memory(cgp_genes, weights, buff, idx, buffer_idx)
 
         # initialize the buffer with inputs and constants and use zeros as placeholders for computation
         buffer = jnp.concatenate([obs, self.input_constants, jnp.zeros(self.n_nodes)])
@@ -167,7 +128,7 @@ class CGP:
         # apply wrapper to constraint the outputs in the correct domain
         return self.outputs_wrapper(outputs)
 
-    def compute_active_nodes(
+    def compute_active_mask(
             self,
             cgp_genome_params: Genotype,
     ) -> Mask:
@@ -212,11 +173,11 @@ class CGP:
         )
         return active_buffer[-self.n_nodes:].astype(int)
 
-    def get_readable_expression(
+    def _get_readable_expression(
             self,
             cgp_genome_params: Genotype,
-            inputs_mapping: Union[Dict[int, str], Callable[[int], str]] = None,
-            outputs_mapping: Union[Dict[int, str], Callable[[int], str]] = None) -> str:
+            inputs_mapping_fn: Callable[[int], str],
+            outputs_mapping_fn: Callable[[int], str], ) -> List[str]:
         """Generate a human-readable symbolic representation of a CGP genome.
 
             Unary functions are printed in the form:
@@ -227,39 +188,9 @@ class CGP:
 
             Args:
                 cgp_genome_params: CGP genotype.
-                inputs_mapping (dict[int,str] | callable[[int], str]], optional):
-                    Mapping from input indices to custom names.
-                    - If a dict, keys are input indices
-                    - If a callable, it is called with the input index and must
-                      return the desired string
-                    Defaults to "i0", "i1", ...
-                outputs_mapping (dict[int,str] | callable[[int], str]], optional):
-                    Mapping from output indices to custom names.
-                    - If a dict, keys are output indices
-                    - If a callable, it is called with the output index and must
-                      return the desired string
-                    Defaults to "o0", "o1", ...
-
-            Returns:
-                str: A multi-line string, with one line per output, showing the
-                symbolic expression computed for each CGP output node.
-
-            Example:
-                o0 = (i0+i1)
-                o1 = sin(i2)
+                inputs_mapping_fn: Mapping from input indices to custom names.
+                outputs_mapping_fn Mapping from output indices to custom names.
             """
-        inputs_mapping = inputs_mapping or {}
-        if isinstance(inputs_mapping, dict):
-            inputs_mapping_fn = lambda idx: inputs_mapping.get(idx, f"i{idx}")
-        else:
-            inputs_mapping_fn = inputs_mapping
-
-        outputs_mapping = outputs_mapping or {}
-        if isinstance(outputs_mapping, dict):
-            outputs_mapping_fn = lambda idx: outputs_mapping.get(idx, f"o{idx}")
-        else:
-            outputs_mapping_fn = outputs_mapping
-
         n_in = self.n_inputs + len(self.input_constants)
         targets = []
 
@@ -273,9 +204,7 @@ class CGP:
             functions = list(self.function_set.function_set.values())
             gene_idx = idx - n_in
             function = functions[cgp_genes["genes"]["functions"][gene_idx]]
-            node_weight = f"{cgp_genes['weights']['functions'][gene_idx]:.2f}*" if self.weighted_functions else ""
-            x_weight = f"{cgp_genes['weights']['inputs1'][gene_idx]:.2f}*" if self.weighted_inputs else ""
-            y_weight = f"{cgp_genes['weights']['inputs2'][gene_idx]:.2f}*" if self.weighted_inputs else ""
+            node_weight, x_weight, y_weight = self._weights_representations(cgp_genes, gene_idx)
             if function.arity == 1:
                 return (f"{node_weight}{function.symbol}({x_weight}"
                         f"{_replace_cgp_expression(cgp_genes, int(cgp_genes['genes']['inputs1'][gene_idx]))})")
@@ -287,7 +216,7 @@ class CGP:
             targets.append(
                 f"{outputs_mapping_fn(int(i))} = {self.outputs_wrapper.__name__}({_replace_cgp_expression(cgp_genome_params, out)})")
 
-        return "\n".join(targets)
+        return targets
 
 
 def cgp_mutation(

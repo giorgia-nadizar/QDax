@@ -137,7 +137,7 @@ def test_active_lines() -> None:
         }
     }
     expected_active_lines = jnp.asarray([1, 1, 1, 1, 0])
-    active_lines = lgp.compute_active_lines(lgp_genome)
+    active_lines = lgp.compute_active_mask(lgp_genome)
     pytest.assume(jnp.array_equal(active_lines, expected_active_lines))
 
     # define genome structure
@@ -161,7 +161,7 @@ def test_active_lines() -> None:
         }
     }
     expected_active_lines2 = jnp.asarray([0, 1])
-    active_lines2 = lgp2.compute_active_lines(lgp_genome2)
+    active_lines2 = lgp2.compute_active_mask(lgp_genome2)
     pytest.assume(jnp.array_equal(active_lines2, expected_active_lines2))
 
 
@@ -180,7 +180,7 @@ def test_active_lines_jit() -> None:
     init_lgp_genomes = jax.vmap(lgp.init)(keys)
 
     # Check it runs
-    jax.vmap(lgp.compute_active_lines)(init_lgp_genomes)
+    jax.vmap(lgp.compute_active_mask)(init_lgp_genomes)
 
 
 def test_readable_program() -> None:
@@ -284,7 +284,7 @@ def test_gradient_optimization_of_function_weights() -> None:
             "inputs2": jnp.ones(lgp.n_program_lines),
         }
     }
-    active = lgp.compute_active_lines(lgp_genome)
+    active = lgp.compute_active_mask(lgp_genome)
     print(lgp.get_readable_expression(lgp_genome), "\n")
     print(target_weights * active)
 
@@ -353,7 +353,7 @@ def test_gradient_optimization_of_input_weights() -> None:
             "inputs2": target_weights2
         }
     }
-    active = lgp.compute_active_lines(lgp_genome)
+    active = lgp.compute_active_mask(lgp_genome)
 
     # Generate synthetic dataset
     n_samples = 500
