@@ -239,6 +239,8 @@ def test_gradient_optimization_of_function_weights() -> None:
         # print(f"Step {i}, Loss {train_loss}, Params {cgp_weights}")
     print(cgp_weights * active)
 
+    pytest.assume(jnp.all(jnp.abs(target_weights * active - cgp_weights * active) < .05))
+
 
 def test_gradient_optimization_of_connection_weights() -> None:
     # Generate genome

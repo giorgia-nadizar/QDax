@@ -322,6 +322,6 @@ def test_gradient_optimization_of_function_weights() -> None:
     # Training loop
     for i in range(50_000):
         lgp_weights, opt_state, train_loss = step(lgp_genome, lgp_weights, opt_state, observations, target_outputs)
-        # if i % 1_000 == 0:
-        # print(f"Step {i}, Loss {train_loss}, Params {lgp_weights}")
     print(lgp_weights * active)
+
+    pytest.assume(jnp.all(jnp.abs(target_weights * active - lgp_weights * active) < .05))
