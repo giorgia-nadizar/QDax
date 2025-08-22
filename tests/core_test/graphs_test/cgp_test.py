@@ -242,7 +242,7 @@ def test_gradient_optimization_of_function_weights() -> None:
     pytest.assume(jnp.all(jnp.abs(target_weights * active - cgp_weights * active) < .05))
 
 
-def test_gradient_optimization_of_connection_weights() -> None:
+def test_gradient_optimization_of_input_weights() -> None:
     # Generate genome
     cgp = CGP(
         n_inputs=3,
@@ -276,7 +276,6 @@ def test_gradient_optimization_of_connection_weights() -> None:
     y = jax.random.normal(y_key, (n_samples,))
     z = jax.random.normal(z_key, (n_samples,))
     observations = jnp.vstack((x, y, z)).T
-    noise = 0.01 * jax.random.normal(noise_key, (n_samples, cgp.n_outputs))
     target_outputs = (jax.vmap(cgp.apply, (None, 0, None))
                       (cgp_genome, observations,
                        {"inputs1": target_weights1, "inputs2": target_weights2}))
