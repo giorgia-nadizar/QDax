@@ -31,10 +31,10 @@ def test_genome_bounds() -> None:
     initial_cgp_genome = cgp.init(init_key)
 
     # check if bounds are respected at initialization
-    pytest.assume(jnp.all(initial_cgp_genome["params"]["inputs1"] < connections_bounds))
-    pytest.assume(jnp.all(initial_cgp_genome["params"]["inputs2"] < connections_bounds))
-    pytest.assume(jnp.all(initial_cgp_genome["params"]["functions"] < functions_bound))
-    pytest.assume(jnp.all(initial_cgp_genome["params"]["outputs"] < outputs_bound))
+    pytest.assume(jnp.all(initial_cgp_genome["genes"]["inputs1"] < connections_bounds))
+    pytest.assume(jnp.all(initial_cgp_genome["genes"]["inputs2"] < connections_bounds))
+    pytest.assume(jnp.all(initial_cgp_genome["genes"]["functions"] < functions_bound))
+    pytest.assume(jnp.all(initial_cgp_genome["genes"]["outputs"] < outputs_bound))
     pytest.assume(jnp.all(initial_cgp_genome["weights"]["nodes"] == 1))
     pytest.assume(jnp.all(initial_cgp_genome["weights"]["inputs1"] == 1))
     pytest.assume(jnp.all(initial_cgp_genome["weights"]["inputs2"] == 1))
@@ -48,10 +48,10 @@ def test_genome_bounds() -> None:
     )
 
     # check if bounds are respected after mutation
-    pytest.assume(jnp.all(mutated_cgp_genome["params"]["inputs1"] < connections_bounds))
-    pytest.assume(jnp.all(mutated_cgp_genome["params"]["inputs2"] < connections_bounds))
-    pytest.assume(jnp.all(mutated_cgp_genome["params"]["functions"] < functions_bound))
-    pytest.assume(jnp.all(mutated_cgp_genome["params"]["outputs"] < outputs_bound))
+    pytest.assume(jnp.all(mutated_cgp_genome["genes"]["inputs1"] < connections_bounds))
+    pytest.assume(jnp.all(mutated_cgp_genome["genes"]["inputs2"] < connections_bounds))
+    pytest.assume(jnp.all(mutated_cgp_genome["genes"]["functions"] < functions_bound))
+    pytest.assume(jnp.all(mutated_cgp_genome["genes"]["outputs"] < outputs_bound))
     pytest.assume(jnp.all(mutated_cgp_genome["weights"]["nodes"] == 1))
     pytest.assume(jnp.all(mutated_cgp_genome["weights"]["inputs1"] == 1))
     pytest.assume(jnp.all(mutated_cgp_genome["weights"]["inputs2"] == 1))
@@ -73,7 +73,7 @@ def test_known_genome_execution() -> None:
         n_nodes=5
     )
     cgp_genome = {
-        "params": {
+        "genes": {
             "inputs1": jnp.asarray([0, 0, 4, 0, 0]),
             "inputs2": jnp.ones(cgp.n_nodes, dtype=jnp.int32),
             "functions": jnp.asarray([0, 0, 2, 0, 0]),
@@ -108,7 +108,7 @@ def test_active_graph() -> None:
         n_nodes=5
     )
     cgp_genome = {
-        "params": {
+        "genes": {
             "inputs1": jnp.asarray([0, 0, 4, 0, 0]),
             "inputs2": jnp.asarray([1, 1, 5, 1, 1]),
             "functions": jnp.asarray([0, 0, 4, 0, 0]),
@@ -148,7 +148,7 @@ def test_readable_expression() -> None:
         n_nodes=5,
     )
     cgp_genome = {
-        "params": {
+        "genes": {
             "inputs1": jnp.asarray([0, 0, 4, 0, 0]),
             "inputs2": jnp.asarray([1, 1, 5, 1, 1]),
             "functions": jnp.asarray([0, 0, 4, 0, 0]),
@@ -186,7 +186,7 @@ def test_gradient_optimization_of_node_weights() -> None:
     )
     target_weights = jnp.asarray([.2, -.5, .4, -.3])
     cgp_genome = {
-        "params": {
+        "genes": {
             "inputs1": jax.lax.stop_gradient(jnp.asarray([0, 1, 3, 0])),
             "inputs2": jax.lax.stop_gradient(jnp.asarray([0, 2, 4, 1])),
             "functions": jax.lax.stop_gradient(jnp.asarray([6, 2, 0, 0])),
@@ -253,7 +253,7 @@ def test_gradient_optimization_of_connection_weights() -> None:
     target_weights1 = jnp.asarray([.2, -.5, .4, -.3])
     target_weights2 = jnp.asarray([-.3, .7, .1, -1.])
     cgp_genome = {
-        "params": {
+        "genes": {
             "inputs1": jax.lax.stop_gradient(jnp.asarray([0, 1, 3, 0])),
             "inputs2": jax.lax.stop_gradient(jnp.asarray([0, 2, 4, 1])),
             "functions": jax.lax.stop_gradient(jnp.asarray([6, 2, 0, 0])),

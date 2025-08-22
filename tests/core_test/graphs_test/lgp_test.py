@@ -26,11 +26,11 @@ def test_genome_bounds() -> None:
     initial_lgp_genome = lgp.init(init_key)
 
     # check if bounds are respected at initialization
-    pytest.assume(jnp.all(initial_lgp_genome["params"]["targets"] >= lhs_lower_bound))
-    pytest.assume(jnp.all(initial_lgp_genome["params"]["targets"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(initial_lgp_genome["params"]["inputs1"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(initial_lgp_genome["params"]["inputs2"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(initial_lgp_genome["params"]["functions"] < functions_bound))
+    pytest.assume(jnp.all(initial_lgp_genome["genes"]["targets"] >= lhs_lower_bound))
+    pytest.assume(jnp.all(initial_lgp_genome["genes"]["targets"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(initial_lgp_genome["genes"]["inputs1"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(initial_lgp_genome["genes"]["inputs2"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(initial_lgp_genome["genes"]["functions"] < functions_bound))
 
     # mutate genome
     key, mut_key = jax.random.split(key)
@@ -41,11 +41,11 @@ def test_genome_bounds() -> None:
     )
 
     # check if bounds are respected after mutation
-    pytest.assume(jnp.all(mutated_lgp_genome["params"]["targets"] >= lhs_lower_bound))
-    pytest.assume(jnp.all(mutated_lgp_genome["params"]["targets"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(mutated_lgp_genome["params"]["inputs1"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(mutated_lgp_genome["params"]["inputs2"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(mutated_lgp_genome["params"]["functions"] < functions_bound))
+    pytest.assume(jnp.all(mutated_lgp_genome["genes"]["targets"] >= lhs_lower_bound))
+    pytest.assume(jnp.all(mutated_lgp_genome["genes"]["targets"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(mutated_lgp_genome["genes"]["inputs1"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(mutated_lgp_genome["genes"]["inputs2"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(mutated_lgp_genome["genes"]["functions"] < functions_bound))
 
     # init another genome and perform crossover
     key, another_init_key = jax.random.split(key)
@@ -54,11 +54,11 @@ def test_genome_bounds() -> None:
     crossed_genome = lgp_crossover(mutated_lgp_genome, another_lgp_genome, xover_key, lgp)
 
     # check if bounds are respected after crossover
-    pytest.assume(jnp.all(crossed_genome["params"]["targets"] >= lhs_lower_bound))
-    pytest.assume(jnp.all(crossed_genome["params"]["targets"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(crossed_genome["params"]["inputs1"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(crossed_genome["params"]["inputs2"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(crossed_genome["params"]["functions"] < functions_bound))
+    pytest.assume(jnp.all(crossed_genome["genes"]["targets"] >= lhs_lower_bound))
+    pytest.assume(jnp.all(crossed_genome["genes"]["targets"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(crossed_genome["genes"]["inputs1"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(crossed_genome["genes"]["inputs2"] < assignments_upper_bounds))
+    pytest.assume(jnp.all(crossed_genome["genes"]["functions"] < functions_bound))
 
 
 def test_known_genome_execution() -> None:
@@ -78,7 +78,7 @@ def test_known_genome_execution() -> None:
         n_computation_registers=4
     )
     lgp_genome = {
-        "params": {
+        "genes": {
             "targets": jnp.asarray([8, 9, 10, 11]),
             "inputs1": jnp.asarray([0, 2, 0, 10]),
             "inputs2": jnp.asarray([3, 3, 1, 1]),
@@ -109,7 +109,7 @@ def test_active_lines() -> None:
         n_computation_registers=4
     )
     lgp_genome = {
-        "params": {
+        "genes": {
             "targets": jnp.asarray([8, 9, 10, 11, 4]),
             "inputs1": jnp.asarray([0, 2, 0, 10, 2]),
             "inputs2": jnp.asarray([3, 3, 1, 1, 10]),
@@ -128,7 +128,7 @@ def test_active_lines() -> None:
         n_computation_registers=4
     )
     lgp_genome2 = {
-        "params": {
+        "genes": {
             "targets": jnp.asarray([5, 9]),
             "inputs1": jnp.asarray([0, 0]),
             "inputs2": jnp.asarray([1, 5]),
@@ -166,7 +166,7 @@ def test_readable_program() -> None:
         n_computation_registers=4
     )
     lgp_genome = {
-        "params": {
+        "genes": {
             "targets": jnp.asarray([8, 9, 10, 11, 4]),
             "inputs1": jnp.asarray([0, 2, 0, 10, 2]),
             "inputs2": jnp.asarray([3, 3, 1, 1, 10]),
@@ -182,7 +182,7 @@ def test_readable_program() -> None:
         n_computation_registers=4
     )
     lgp_genome2 = {
-        "params": {
+        "genes": {
             "targets": jnp.asarray([5, 9]),
             "inputs1": jnp.asarray([0, 0]),
             "inputs2": jnp.asarray([1, 5]),
@@ -200,7 +200,7 @@ def test_readable_expression() -> None:
         n_computation_registers=4
     )
     lgp_genome = {
-        "params": {
+        "genes": {
             "targets": jnp.asarray([8, 9, 10, 11, 4]),
             "inputs1": jnp.asarray([0, 2, 0, 10, 2]),
             "inputs2": jnp.asarray([6, 3, 1, 1, 10]),

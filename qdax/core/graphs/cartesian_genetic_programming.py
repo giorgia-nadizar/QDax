@@ -70,7 +70,7 @@ class CGP:
                 *args: Unused additional arguments for API compatibility.
 
             Returns:
-                A dictionary containing the `"params"` key with genome sections as
+                A dictionary containing the `"genes"` key with genome sections as
                 integer JAX arrays:
                     - `"inputs1"`
                     - `"inputs2"`
@@ -98,7 +98,7 @@ class CGP:
 
         # rescale, cast to integer and store the random genome parts
         return {
-            "params": {
+            "genes": {
                 "inputs1": jnp.floor(random_x * in_mask).astype(int),
                 "inputs2": jnp.floor(random_y * in_mask).astype(int),
                 "functions": jnp.floor(random_f * f_mask).astype(int),
@@ -145,11 +145,11 @@ class CGP:
                            carry: Tuple[Genotype, jnp.ndarray]
                            ) -> Tuple[Genotype, jnp.ndarray]:
             cgp_genes, buff = carry
-            n_in = len(buff) - len(cgp_genes["params"]["inputs1"])
+            n_in = len(buff) - len(cgp_genes["genes"]["inputs1"])
             idx = buffer_idx - n_in
-            f_idx = cgp_genes["params"]["functions"].at[idx].get()
-            x_arg = buff.at[cgp_genes["params"]["inputs1"].at[idx].get()].get() * weights["inputs1"].at[idx].get()
-            y_arg = buff.at[cgp_genes["params"]["inputs2"].at[idx].get()].get() * weights["inputs2"].at[idx].get()
+            f_idx = cgp_genes["genes"]["functions"].at[idx].get()
+            x_arg = buff.at[cgp_genes["genes"]["inputs1"].at[idx].get()].get() * weights["inputs1"].at[idx].get()
+            y_arg = buff.at[cgp_genes["genes"]["inputs2"].at[idx].get()].get() * weights["inputs2"].at[idx].get()
             f_computed = self.function_set.apply(f_idx, x_arg, y_arg) * weights["nodes"].at[idx].get()
             buff = buff.at[buffer_idx].set(f_computed)
             return cgp_genes, buff
@@ -162,7 +162,7 @@ class CGP:
             upper=len(buffer),
             body_fun=_update_buffer,
             init_val=(cgp_genome_params, buffer))
-        outputs = jnp.take(buffer, cgp_genome_params["params"]["outputs"])
+        outputs = jnp.take(buffer, cgp_genome_params["genes"]["outputs"])
 
         # apply wrapper to constraint the outputs in the correct domain
         return self.outputs_wrapper(outputs)
@@ -185,7 +185,7 @@ class CGP:
         """
 
         active_buffer = jnp.zeros(self.buffer_size)
-        active_buffer = active_buffer.at[cgp_genome_params["params"]["outputs"]].set(1)
+        active_buffer = active_buffer.at[cgp_genome_params["genes"]["outputs"]].set(1)
 
         # define function to mark if a buffer is active in a certain position
         def _compute_active_nodes(
@@ -193,11 +193,11 @@ class CGP:
                 carry: Tuple[Genotype, Mask],
         ) -> Tuple[Genotype, Mask]:
             cgp_genes, active = carry
-            n_in = len(active) - len(cgp_genes["params"]["inputs1"])
+            n_in = len(active) - len(cgp_genes["genes"]["inputs1"])
             idx = len(active) - opposite_idx - 1
-            x_idx = cgp_genes["params"]["inputs1"].at[idx - n_in].get().astype(int)
-            y_idx = cgp_genes["params"]["inputs2"].at[idx - n_in].get().astype(int)
-            arity = self.function_set.arities.at[cgp_genes["params"]["functions"][idx - n_in]].get()
+            x_idx = cgp_genes["genes"]["inputs1"].at[idx - n_in].get().astype(int)
+            y_idx = cgp_genes["genes"]["inputs2"].at[idx - n_in].get().astype(int)
+            arity = self.function_set.arities.at[cgp_genes["genes"]["functions"][idx - n_in]].get()
             active = active.at[x_idx].set(jnp.logical_or(active.at[x_idx].get(), active.at[idx].get()))
             active = active.at[y_idx].set(jnp.logical_or(
                 active.at[y_idx].get(), jnp.logical_and(active.at[idx].get(), arity == 2)
@@ -272,18 +272,18 @@ class CGP:
                 return str(self.input_constants[idx - self.n_inputs])
             functions = list(self.function_set.function_set.values())
             gene_idx = idx - n_in
-            function = functions[cgp_genes["params"]["functions"][gene_idx]]
+            function = functions[cgp_genes["genes"]["functions"][gene_idx]]
             node_weight = f"{cgp_genes['weights']['nodes'][gene_idx]:.2f}*" if self.weighted_nodes else ""
             x_weight = f"{cgp_genes['weights']['inputs1'][gene_idx]:.2f}*" if self.weighted_connections else ""
             y_weight = f"{cgp_genes['weights']['inputs2'][gene_idx]:.2f}*" if self.weighted_connections else ""
             if function.arity == 1:
                 return (f"{node_weight}{function.symbol}({x_weight}"
-                        f"{_replace_cgp_expression(cgp_genes, int(cgp_genes['params']['inputs1'][gene_idx]))})")
+                        f"{_replace_cgp_expression(cgp_genes, int(cgp_genes['genes']['inputs1'][gene_idx]))})")
             else:
-                return f"{node_weight}({x_weight}{_replace_cgp_expression(cgp_genes, int(cgp_genes['params']['inputs1'][gene_idx]))}" \
-                       f"{function.symbol}{y_weight}{_replace_cgp_expression(cgp_genes, int(cgp_genes['params']['inputs2'][gene_idx]))})"
+                return f"{node_weight}({x_weight}{_replace_cgp_expression(cgp_genes, int(cgp_genes['genes']['inputs1'][gene_idx]))}" \
+                       f"{function.symbol}{y_weight}{_replace_cgp_expression(cgp_genes, int(cgp_genes['genes']['inputs2'][gene_idx]))})"
 
-        for i, out in enumerate(cgp_genome_params["params"]["outputs"]):
+        for i, out in enumerate(cgp_genome_params["genes"]["outputs"]):
             targets.append(
                 f"{outputs_mapping_fn(int(i))} = {self.outputs_wrapper.__name__}({_replace_cgp_expression(cgp_genome_params, out)})")
 
@@ -354,21 +354,21 @@ def cgp_mutation(
 
     # mutate each sub-part of the genome
     return {
-        "params": {
-            "inputs1": _mutate_subgenome(genotype["params"]["inputs1"],
-                                         donor_genotype["params"]["inputs1"],
+        "genes": {
+            "inputs1": _mutate_subgenome(genotype["genes"]["inputs1"],
+                                         donor_genotype["genes"]["inputs1"],
                                          x_key,
                                          p_mut_inputs),
-            "inputs2": _mutate_subgenome(genotype["params"]["inputs2"],
-                                         donor_genotype["params"]["inputs2"],
+            "inputs2": _mutate_subgenome(genotype["genes"]["inputs2"],
+                                         donor_genotype["genes"]["inputs2"],
                                          y_key,
                                          p_mut_inputs),
-            "functions": _mutate_subgenome(genotype["params"]["functions"],
-                                           donor_genotype["params"]["functions"],
+            "functions": _mutate_subgenome(genotype["genes"]["functions"],
+                                           donor_genotype["genes"]["functions"],
                                            f_key,
                                            p_mut_functions),
-            "outputs": _mutate_subgenome(genotype["params"]["outputs"],
-                                         donor_genotype["params"]["outputs"],
+            "outputs": _mutate_subgenome(genotype["genes"]["outputs"],
+                                         donor_genotype["genes"]["outputs"],
                                          out_key,
                                          p_mut_outputs),
         },
