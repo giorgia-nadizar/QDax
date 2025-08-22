@@ -42,7 +42,7 @@ class LGP:
         input_constants: array of constant values that can be used as additional inputs.
         outputs_wrapper: function applied to the outputs of the LGP program
             before returning them to bound them in a certain range.
-        weighted_lines: whether the genome will contain weighting factors for each program line.
+        weighted_functions: whether the genome will contain weighting factors for each program line.
         weighted_connections: whether the genome will contain weighting factors for each connection.
     """
     n_inputs: int
@@ -52,7 +52,7 @@ class LGP:
     function_set: FunctionSet = FunctionSet()
     input_constants: jnp.ndarray = jnp.asarray([0.1, 1.0])
     outputs_wrapper: Callable = jnp.tanh
-    weighted_lines: bool = False
+    weighted_functions: bool = False
     weighted_connections: bool = False
 
     @property
@@ -84,9 +84,9 @@ class LGP:
                     - `"y_arguments"`
                     - `"functions"`
                 and the `"weights`" key with weights sections as floating point JAX arrays:
-                    - `"lines"`
                     - `"inputs1"`
                     - `"inputs2"`
+                    - `"functions"`
                 The encoding is inspired by that of MLPs.
             """
         # determine bounds for genes for each section of the genome
@@ -111,11 +111,11 @@ class LGP:
                 "functions": jnp.floor(random_f * f_mask).astype(int)
             },
             "weights": {
-                "lines": random_line_weights if self.weighted_lines else jnp.ones_like(random_line_weights),
                 "inputs1": random_input_weights1 if self.weighted_connections else jnp.ones_like(
                     random_input_weights1),
                 "inputs2": random_input_weights2 if self.weighted_connections else jnp.ones_like(
-                    random_input_weights2)
+                    random_input_weights2),
+                "functions": random_line_weights if self.weighted_functions else jnp.ones_like(random_line_weights)
             }
         }
 
@@ -157,7 +157,7 @@ class LGP:
                 line_idx].get()
             y_arg = regs.at[lgp_genes["genes"]["inputs2"].at[line_idx].get()].get() * weights["inputs2"].at[
                 line_idx].get()
-            f_computed = self.function_set.apply(f_idx, x_arg, y_arg) * weights["lines"].at[line_idx].get()
+            f_computed = self.function_set.apply(f_idx, x_arg, y_arg) * weights["functions"].at[line_idx].get()
             regs = regs.at[target_register_idx].set(f_computed)
             return lgp_genes, regs
 
@@ -281,7 +281,7 @@ class LGP:
             for row_idx in range(max_row_idx - 1, -1, -1):
                 if int(lgp_genes['genes']['targets'][row_idx]) == reg_idx:
                     function = functions[lgp_genes["genes"]["functions"][row_idx]]
-                    line_weight = f"{lgp_genes['weights']['lines'][lgp_genes]:.2f}*" if self.weighted_lines else ""
+                    line_weight = f"{lgp_genes['weights']['functions'][lgp_genes]:.2f}*" if self.weighted_functions else ""
                     x_weight = f"{lgp_genes['weights']['inputs1'][lgp_genes]:.2f}*" if self.weighted_connections else ""
                     y_weight = f"{lgp_genes['weights']['inputs2'][lgp_genes]:.2f}*" if self.weighted_connections else ""
                     if function.arity == 1:
@@ -354,7 +354,7 @@ class LGP:
         for line_idx in range(self.n_program_lines):
             if active_lines[line_idx]:
                 function = functions[lgp_genome_params["genes"]["functions"][line_idx]]
-                line_weight = f"{lgp_genome_params['weights']['lines'][line_idx]:.2f}*(" if self.weighted_lines else ""
+                line_weight = f"{lgp_genome_params['weights']['lines'][line_idx]:.2f}*(" if self.weighted_functions else ""
                 x_weight = f"{lgp_genome_params['weights']['inputs1'][line_idx]:.2f}*" if self.weighted_connections else ""
                 y_weight = f"{lgp_genome_params['weights']['inputs2'][line_idx]:.2f}*" if self.weighted_connections else ""
                 target_reg = lgp_genome_params['genes']['targets'][line_idx]
@@ -362,7 +362,7 @@ class LGP:
                 y_reg = lgp_genome_params['genes']['inputs2'][line_idx]
                 if function.arity > 1:
                     program_lines.append(f"r[{target_reg}] = {line_weight} {x_weight}r[{x_reg}] {function.symbol} "
-                                         f"{y_weight}r[{y_reg}] {')' if self.weighted_lines else ''}")
+                                         f"{y_weight}r[{y_reg}] {')' if self.weighted_functions else ''}")
                 else:
                     program_lines.append(f"r[{target_reg}] = {line_weight.replace('(', '')}{function.symbol}"
                                          f"({x_weight}r[{x_reg}])")
@@ -421,15 +421,15 @@ def lgp_crossover(
                                    genotype2["genes"]["functions"]),
         },
         "weights": {
-            "lines": jnp.where(mask,
-                               genotype1["weights"]["lines"],
-                               genotype2["weights"]["lines"]),
             "inputs1": jnp.where(mask,
                                  genotype1["weights"]["inputs1"],
                                  genotype2["weights"]["inputs1"]),
             "inputs2": jnp.where(mask,
                                  genotype1["weights"]["inputs2"],
                                  genotype2["weights"]["inputs2"]),
+            "functions": jnp.where(mask,
+                                   genotype1["weights"]["functions"],
+                                   genotype2["weights"]["functions"]),
         }
     }
 
@@ -516,8 +516,8 @@ def lgp_mutation(
                                            p_mut_functions),
         },
         "weights": {
-            "lines": genotype["weights"]["lines"] + lgp.weighted_lines * line_w_noise,
             "inputs1": genotype["weights"]["inputs1"] + lgp.weighted_connections * i1_w_noise,
             "inputs2": genotype["weights"]["inputs2"] + lgp.weighted_connections * i2_w_noise,
+            "functions": genotype["weights"]["functions"] + lgp.weighted_functions * line_w_noise,
         }
     }

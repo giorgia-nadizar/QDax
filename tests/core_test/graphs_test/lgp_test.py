@@ -85,7 +85,7 @@ def test_known_genome_execution() -> None:
             "functions": jnp.asarray([2, 2, 0, 2]),
         },
         "weights": {
-            "lines": jnp.ones((lgp.n_program_lines,)),
+            "functions": jnp.ones((lgp.n_program_lines,)),
             "inputs1": jnp.ones((lgp.n_program_lines,)),
             "inputs2": jnp.ones((lgp.n_program_lines,)),
         }
@@ -121,9 +121,9 @@ def test_active_lines() -> None:
             "functions": jnp.asarray([2, 2, 0, 2, 1]),
         },
         "weights": {
-            "lines": jnp.ones((lgp.n_program_lines,)),
             "inputs1": jnp.ones((lgp.n_program_lines,)),
             "inputs2": jnp.ones((lgp.n_program_lines,)),
+            "functions": jnp.ones((lgp.n_program_lines,)),
         }
     }
     expected_active_lines = jnp.asarray([1, 1, 1, 1, 0])
@@ -145,7 +145,7 @@ def test_active_lines() -> None:
             "functions": jnp.asarray([2, 5]),
         },
         "weights": {
-            "lines": jnp.ones((lgp2.n_program_lines,)),
+            "functions": jnp.ones((lgp2.n_program_lines,)),
             "inputs1": jnp.ones((lgp2.n_program_lines,)),
             "inputs2": jnp.ones((lgp2.n_program_lines,)),
         }
@@ -188,9 +188,9 @@ def test_readable_program() -> None:
             "functions": jnp.asarray([2, 2, 0, 2, 1]),
         },
         "weights": {
-            "lines": jnp.ones((lgp.n_program_lines,)),
             "inputs1": jnp.ones((lgp.n_program_lines,)),
             "inputs2": jnp.ones((lgp.n_program_lines,)),
+            "functions": jnp.ones((lgp.n_program_lines,)),
         }
     }
     print(lgp.get_readable_program(lgp_genome))
@@ -227,9 +227,9 @@ def test_readable_expression() -> None:
             "functions": jnp.asarray([2, 2, 0, 2, 1]),
         },
         "weights": {
-            "lines": jnp.ones((lgp.n_program_lines,)),
             "inputs1": jnp.ones((lgp.n_program_lines,)),
             "inputs2": jnp.ones((lgp.n_program_lines,)),
+            "functions": jnp.ones((lgp.n_program_lines,)),
         }
     }
     print(lgp.get_readable_program(lgp_genome), "\n")
