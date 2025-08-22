@@ -174,7 +174,7 @@ def test_readable_expression() -> None:
     print(cgp.get_readable_expression(cgp_genome, outputs_mapping=outputs_mapping_dict), "\n")
 
 
-def test_gradient_optimization_of_node_weights() -> None:
+def test_gradient_optimization_of_function_weights() -> None:
     # Generate genome
     cgp = CGP(
         n_inputs=3,
