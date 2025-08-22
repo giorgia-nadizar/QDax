@@ -182,7 +182,7 @@ def test_gradient_optimization_of_function_weights() -> None:
         n_outputs=2,
         n_nodes=4,
         weighted_functions=True,
-        weighted_connections=False
+        weighted_inputs=False
     )
     target_weights = jnp.asarray([.2, -.5, .4, -.3])
     cgp_genome = {
@@ -248,7 +248,7 @@ def test_gradient_optimization_of_connection_weights() -> None:
         n_outputs=2,
         n_nodes=4,
         weighted_functions=False,
-        weighted_connections=True
+        weighted_inputs=True
     )
     target_weights1 = jnp.asarray([.2, -.5, .4, -.3])
     target_weights2 = jnp.asarray([-.3, .7, .1, -1.])
