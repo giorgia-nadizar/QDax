@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import optax
 import pytest
 
-from qdax.core.graphs.linear_genetic_programming import LGP, lgp_crossover
+from qdax.core.graphs.linear_genetic_programming import LGP
 
 
 def test_genome_bounds() -> None:
@@ -57,7 +57,7 @@ def test_genome_bounds() -> None:
     key, another_init_key = jax.random.split(key)
     another_lgp_genome = lgp.init(another_init_key)
     key, xover_key = jax.random.split(key)
-    crossed_genome = lgp_crossover(mutated_lgp_genome, another_lgp_genome, xover_key, lgp)
+    crossed_genome = lgp.crossover(mutated_lgp_genome, another_lgp_genome, xover_key)
 
     # check if bounds are respected after crossover
     pytest.assume(jnp.all(crossed_genome["genes"]["targets"] >= lhs_lower_bound))

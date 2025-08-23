@@ -251,44 +251,62 @@ class LGP(GGP):
             "weights": temporary_genotype["weights"]
         }
 
-    def _get_readable_expression(
+    def crossover(
             self,
-            lgp_genome_params: Genotype,
-            inputs_mapping_fn: Callable[[int], str],
-            outputs_mapping_fn: Callable[[int], str], ) -> List[str]:
-        """Worker class for computing the readable symbolic representation of a CGP genotype."""
-        n_in = self.n_inputs + len(self.input_constants)
-        targets = []
+            genotype1: Genotype,
+            genotype2: Genotype,
+            rnd_key: RNGKey,
+    ) -> Genotype:
+        """Performs one-point crossover between two LGP genomes, weights included.
 
-        def _replace_lgp_expression(lgp_genes: Genotype,
-                                    reg_idx: int, max_row_idx: int, ) -> str:
-            functions = list(self.function_set.function_set.values())
-            for row_idx in range(max_row_idx - 1, -1, -1):
-                if int(lgp_genes['genes']['targets'][row_idx]) == reg_idx:
-                    function = functions[lgp_genes["genes"]["functions"][row_idx]]
-                    line_weight, x_weight, y_weight = self._weights_representations(lgp_genes, row_idx)
-                    if function.arity == 1:
-                        return (f"{line_weight}{function.symbol}({x_weight}"
-                                f"{_replace_lgp_expression(lgp_genes, int(lgp_genes['genes']['inputs1'][row_idx]), row_idx)})")
-                    else:
-                        return (f"{line_weight}({x_weight}"
-                                f"{_replace_lgp_expression(lgp_genes, int(lgp_genes['genes']['inputs1'][row_idx]), row_idx)}"
-                                f"{function.symbol}{y_weight}"
-                                f"{_replace_lgp_expression(lgp_genes, int(lgp_genes['genes']['inputs2'][row_idx]), row_idx)})")
-            if reg_idx < self.n_inputs:
-                return inputs_mapping_fn(int(reg_idx))
-            elif reg_idx < n_in:
-                return str(self.input_constants[reg_idx - self.n_inputs])
-            else:
-                return "0"
+            A crossover point is chosen uniformly at random among the program lines.
+            Genes before the crossover point are inherited from the first parent,
+            while genes from the crossover point onward are inherited from the
+            second parent. This is applied consistently across all genome sections.
 
-        for output_idx in range(self.n_outputs):
-            register_idx = self.n_registers - self.n_outputs + output_idx
-            targets.append(
-                f"{outputs_mapping_fn(output_idx)} = {self.outputs_wrapper.__name__}({_replace_lgp_expression(lgp_genome_params, register_idx, self.n_program_lines)})"
-            )
+            The operation produces a valid LGP genome of the same structure as the
+            parents.
 
-        return targets
+            Args:
+                genotype1: first LGP parent genome.
+                genotype2: second LGP parent genome.
+                rnd_key: JAX PRNG key for randomness.
+
+            Returns:
+                Genotype: the offspring genome created by crossover.
+            """
+
+        cross_idx = jax.random.randint(rnd_key, (1,), 0, self.n_program_lines) + 1
+        genes_ids = jnp.arange(self.n_program_lines)
+        mask = genes_ids < cross_idx
+        # crossover each sub-part of the genome
+        return {
+            "genes": {
+                "targets": jnp.where(mask,
+                                     genotype1["genes"]["targets"],
+                                     genotype2["genes"]["targets"]),
+                "inputs1": jnp.where(mask,
+                                     genotype1["genes"]["inputs1"],
+                                     genotype2["genes"]["inputs1"]),
+                "inputs2": jnp.where(mask,
+                                     genotype1["genes"]["inputs2"],
+                                     genotype2["genes"]["inputs2"]),
+                "functions": jnp.where(mask,
+                                       genotype1["genes"]["functions"],
+                                       genotype2["genes"]["functions"]),
+            },
+            "weights": {
+                "inputs1": jnp.where(mask,
+                                     genotype1["weights"]["inputs1"],
+                                     genotype2["weights"]["inputs1"]),
+                "inputs2": jnp.where(mask,
+                                     genotype1["weights"]["inputs2"],
+                                     genotype2["weights"]["inputs2"]),
+                "functions": jnp.where(mask,
+                                       genotype1["weights"]["functions"],
+                                       genotype2["weights"]["functions"]),
+            }
+        }
 
     def get_readable_program(
             self,
@@ -355,63 +373,41 @@ class LGP(GGP):
         program_lines.append(f"return {self.outputs_wrapper.__name__}(outputs)")
         return "\n\t".join(program_lines)
 
+    def _get_readable_expression(
+            self,
+            lgp_genome_params: Genotype,
+            inputs_mapping_fn: Callable[[int], str],
+            outputs_mapping_fn: Callable[[int], str], ) -> List[str]:
+        """Worker class for computing the readable symbolic representation of a CGP genotype."""
+        n_in = self.n_inputs + len(self.input_constants)
+        targets = []
 
-def lgp_crossover(
-        genotype1: Genotype,
-        genotype2: Genotype,
-        rnd_key: RNGKey,
-        lgp: LGP,
-) -> Genotype:
-    """Performs one-point crossover between two LGP genomes, weights included.
+        def _replace_lgp_expression(lgp_genes: Genotype,
+                                    reg_idx: int, max_row_idx: int, ) -> str:
+            functions = list(self.function_set.function_set.values())
+            for row_idx in range(max_row_idx - 1, -1, -1):
+                if int(lgp_genes['genes']['targets'][row_idx]) == reg_idx:
+                    function = functions[lgp_genes["genes"]["functions"][row_idx]]
+                    line_weight, x_weight, y_weight = self._weights_representations(lgp_genes, row_idx)
+                    if function.arity == 1:
+                        return (f"{line_weight}{function.symbol}({x_weight}"
+                                f"{_replace_lgp_expression(lgp_genes, int(lgp_genes['genes']['inputs1'][row_idx]), row_idx)})")
+                    else:
+                        return (f"{line_weight}({x_weight}"
+                                f"{_replace_lgp_expression(lgp_genes, int(lgp_genes['genes']['inputs1'][row_idx]), row_idx)}"
+                                f"{function.symbol}{y_weight}"
+                                f"{_replace_lgp_expression(lgp_genes, int(lgp_genes['genes']['inputs2'][row_idx]), row_idx)})")
+            if reg_idx < self.n_inputs:
+                return inputs_mapping_fn(int(reg_idx))
+            elif reg_idx < n_in:
+                return str(self.input_constants[reg_idx - self.n_inputs])
+            else:
+                return "0"
 
-        A crossover point is chosen uniformly at random among the program lines.
-        Genes before the crossover point are inherited from the first parent,
-        while genes from the crossover point onward are inherited from the
-        second parent. This is applied consistently across all genome sections
-        (`targets_genes`, `inputs1_genes`, `inputs2_genes`,
-        `functions_genes`).
+        for output_idx in range(self.n_outputs):
+            register_idx = self.n_registers - self.n_outputs + output_idx
+            targets.append(
+                f"{outputs_mapping_fn(output_idx)} = {self.outputs_wrapper.__name__}({_replace_lgp_expression(lgp_genome_params, register_idx, self.n_program_lines)})"
+            )
 
-        The operation produces a valid LGP genome of the same structure as the
-        parents.
-
-        Args:
-            genotype1: first LGP parent genome.
-            genotype2: second LGP parent genome.
-            rnd_key: JAX PRNG key for randomness.
-            lgp: LGP instance, used to determine the number of program lines.
-
-        Returns:
-            Genotype: the offspring genome created by crossover.
-        """
-
-    cross_idx = jax.random.randint(rnd_key, (1,), 0, lgp.n_program_lines) + 1
-    genes_ids = jnp.arange(lgp.n_program_lines)
-    mask = genes_ids < cross_idx
-    # crossover each sub-part of the genome
-    return {
-        "genes": {
-            "targets": jnp.where(mask,
-                                 genotype1["genes"]["targets"],
-                                 genotype2["genes"]["targets"]),
-            "inputs1": jnp.where(mask,
-                                 genotype1["genes"]["inputs1"],
-                                 genotype2["genes"]["inputs1"]),
-            "inputs2": jnp.where(mask,
-                                 genotype1["genes"]["inputs2"],
-                                 genotype2["genes"]["inputs2"]),
-            "functions": jnp.where(mask,
-                                   genotype1["genes"]["functions"],
-                                   genotype2["genes"]["functions"]),
-        },
-        "weights": {
-            "inputs1": jnp.where(mask,
-                                 genotype1["weights"]["inputs1"],
-                                 genotype2["weights"]["inputs1"]),
-            "inputs2": jnp.where(mask,
-                                 genotype1["weights"]["inputs2"],
-                                 genotype2["weights"]["inputs2"]),
-            "functions": jnp.where(mask,
-                                   genotype1["weights"]["functions"],
-                                   genotype2["weights"]["functions"]),
-        }
-    }
+        return targets
