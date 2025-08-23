@@ -235,7 +235,7 @@ class GGP:
             that allowed. For CGP this boils down to the amount of used nodes, for LGP the
             amount of program lines used.
         """
-        return jnp.mean(self.compute_active_mask(genotype))
+        return jnp.expand_dims(jnp.mean(self.compute_active_mask(genotype)), axis=0)
 
     def compute_function_count(self, genotype: Genotype) -> jnp.ndarray:
         """Compute the number of functions of each type used by the graph/program."""
