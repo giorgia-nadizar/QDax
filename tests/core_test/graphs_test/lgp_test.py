@@ -112,6 +112,35 @@ def test_known_genome_execution() -> None:
             pytest.assume(jnp.allclose(outputs, expected_outputs, rtol=1e-5, atol=1e-8))
 
 
+def test_descriptors() -> None:
+    """Test that a LGP genome has the expected descriptors."""
+    # define genome structure
+    lgp = LGP(
+        n_inputs=2,
+        n_outputs=4,
+        n_program_lines=4,
+        n_computation_registers=4
+    )
+    lgp_genome = {
+        "genes": {
+            "targets": jnp.asarray([8, 9, 10, 11]),
+            "inputs1": jnp.asarray([0, 2, 0, 10]),
+            "inputs2": jnp.asarray([3, 3, 1, 1]),
+            "functions": jnp.asarray([2, 2, 0, 2]),
+        },
+        "weights": {
+            "functions": jnp.ones((lgp.n_program_lines,)),
+            "inputs1": jnp.ones((lgp.n_program_lines,)),
+            "inputs2": jnp.ones((lgp.n_program_lines,)),
+        }
+    }
+    complexity = lgp.compute_complexity(lgp_genome)
+    arities = lgp.compute_function_arities(lgp_genome)
+    pytest.assume(complexity == 1)
+    pytest.assume(arities[0] == 0)
+    pytest.assume(arities[1] == 1)
+
+
 def test_active_lines() -> None:
     """Test that a LGP genomes has the correct active nodes.
         """

@@ -98,6 +98,35 @@ def test_known_genome_execution() -> None:
             pytest.assume(jnp.allclose(outputs, expected_outputs, rtol=1e-5, atol=1e-8))
 
 
+def test_descriptors() -> None:
+    """Test that a CGP genome has the expected descriptors."""
+    # define genome structure
+    cgp = CGP(
+        n_inputs=2,
+        n_outputs=4,
+        n_nodes=5
+    )
+    cgp_genome = {
+        "genes": {
+            "inputs1": jnp.asarray([0, 0, 4, 0, 0]),
+            "inputs2": jnp.ones(cgp.n_nodes, dtype=jnp.int32),
+            "functions": jnp.asarray([0, 0, 2, 0, 0]),
+            "outputs": jnp.asarray([0, 2, 4, 6]),
+        },
+        "weights": {
+            "inputs1": jnp.ones(cgp.n_nodes),
+            "inputs2": jnp.ones(cgp.n_nodes),
+            "functions": jnp.ones(cgp.n_nodes),
+        }
+    }
+
+    complexity = cgp.compute_complexity(cgp_genome)
+    arities = cgp.compute_function_arities(cgp_genome)
+    pytest.assume(complexity == .4)
+    pytest.assume(arities[0] == 0)
+    pytest.assume(arities[1] == .4)
+
+
 def test_active_graph() -> None:
     """Test that a CGP genomes has the correct active nodes.
         """

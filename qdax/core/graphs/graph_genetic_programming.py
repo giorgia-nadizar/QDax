@@ -3,6 +3,7 @@ import jax.numpy as jnp
 from typing import Callable, Dict, Union, List, Tuple, Optional
 
 from jax import random
+from jax.lax import fori_loop
 
 from qdax.core.graphs.functions import FunctionSet
 from qdax.custom_types import RNGKey, Genotype, Mask
@@ -23,8 +24,8 @@ class GGP:
         input_constants: array of constant values that can be used as additional inputs.
         outputs_wrapper: function applied to the outputs before returning them
             (e.g., `tanh` to bound outputs).
-        weighted_functions: whether the genome will contain weighting factors for each node/program line.
-        weighted_inputs: whether the genome will contain weighting factors for each connection.
+        weighted_functions: whether the genotype will contain weighting factors for each node/program line.
+        weighted_inputs: whether the genotype will contain weighting factors for each connection.
     """
 
     n_inputs: int
@@ -41,15 +42,15 @@ class GGP:
         raise NotImplementedError
 
     def init(self, rnd_key: RNGKey, *args):
-        """Initialize a random genome (to be implemented by subclasses)."""
+        """Initialize a random genotype (to be implemented by subclasses)."""
         raise NotImplementedError
 
     def apply(self, genotype: Genotype, obs: jnp.ndarray, weights: Dict[str, jnp.ndarray] = None, ) -> jnp.ndarray:
-        """Evaluate a genome on an input observation (subclass-specific)."""
+        """Evaluate a genotype on an input observation (subclass-specific)."""
         raise NotImplementedError
 
     def compute_active_mask(self, genotype: Genotype, ) -> Mask:
-        """Compute the mask of active (expressed) elements in a genome (subclass-specific)."""
+        """Compute the mask of active (expressed) elements in a genotype (subclass-specific)."""
         raise NotImplementedError
 
     def mutate(self,
@@ -60,14 +61,14 @@ class GGP:
                weights_mut_sigma: float = 0.1,
                mutation_probabilities: Optional[Dict[str, float]] = None
                ) -> Genotype:
-        """Mutates a GGP genome using int-flip mutation. If the genome is weighted, the weights
+        """Mutates a GGP genotype using int-flip mutation. If the genotype is weighted, the weights
             are mutated with Gaussian mutation.
 
             This mutation is implemented as a form of crossover with a newly
-            generated "donor" genome: for each gene, the value is taken from the
-            donor with a low probability, otherwise kept from the original genome.
+            generated "donor" genotype: for each gene, the value is taken from the
+            donor with a low probability, otherwise kept from the original genotype.
             This ensures that all mutated genes remain valid (i.e., within the
-            correct index ranges for their respective genome section).
+            correct index ranges for their respective genotype section).
 
             The function is compatible with standard emitters when wrapped using
             `functools.partial`.
@@ -77,7 +78,7 @@ class GGP:
             the individual arguments.
 
             Args:
-                genotype: the CGP genome parameters to mutate.
+                genotype: the CGP genotype parameters to mutate.
                 rnd_key: JAX PRNG key for randomness.
                 p_mut_inputs: probability of mutating each input connection gene
                     (ignored if overridden via `mutation_probabilities`).
@@ -85,11 +86,11 @@ class GGP:
                     (ignored if overridden via `mutation_probabilities`).
                 weights_mut_sigma: mutation step for weights Gaussian mutation
                     (ignored if overridden via `mutation_probabilities`).
-                mutation_probabilities: optional dictionary mapping genome parts
+                mutation_probabilities: optional dictionary mapping genotype parts
                  to their mutation probabilities.
 
             Returns:
-                The mutated genome.
+                The mutated genotype.
             """
         return self._mutate(genotype, rnd_key, p_mut_inputs, p_mut_functions, weights_mut_sigma,
                             mutation_probabilities)[0]
@@ -102,7 +103,7 @@ class GGP:
                 weights_mut_sigma: float = 0.1,
                 mutation_probabilities: Optional[Dict[str, float]] = None
                 ) -> Tuple[Genotype, Genotype]:
-        """Worker class for mutation that returns both the mutated genome and the donor."""
+        """Worker class for mutation that returns both the mutated genotype and the donor."""
         # extract mutation probabilities if passed through a dictionary
         mutation_probabilities = mutation_probabilities or {}
         p_mut_inputs = mutation_probabilities.get("inputs", p_mut_inputs)
@@ -143,7 +144,7 @@ class GGP:
             inputs_mapping: Union[Dict[int, str], Callable[[int], str]] = None,
             outputs_mapping: Union[Dict[int, str], Callable[[int], str]] = None
     ) -> str:
-        """Generate a human-readable symbolic representation of a GGP genome.
+        """Generate a human-readable symbolic representation of a GGP genotype.
 
             Unary functions are printed in the form:
                 f(x)
@@ -198,10 +199,10 @@ class GGP:
         """Worker class for computing the readable symbolic representation of a GGP genotype."""
         raise NotImplementedError
 
-    def _weights_representations(self, genome: Genotype, gene_idx: int) -> Tuple[str, str, str]:
-        input_weight = f"{genome['weights']['functions'][gene_idx]:.2f}*" if self.weighted_functions else ""
-        x_weight = f"{genome['weights']['inputs1'][gene_idx]:.2f}*" if self.weighted_inputs else ""
-        y_weight = f"{genome['weights']['inputs2'][gene_idx]:.2f}*" if self.weighted_inputs else ""
+    def _weights_representations(self, genotype: Genotype, gene_idx: int) -> Tuple[str, str, str]:
+        input_weight = f"{genotype['weights']['functions'][gene_idx]:.2f}*" if self.weighted_functions else ""
+        x_weight = f"{genotype['weights']['inputs1'][gene_idx]:.2f}*" if self.weighted_inputs else ""
+        y_weight = f"{genotype['weights']['inputs2'][gene_idx]:.2f}*" if self.weighted_inputs else ""
         return input_weight, x_weight, y_weight
 
     def _init_weights(self, random_weights: jnp.ndarray) -> Dict[str, jnp.ndarray]:
@@ -214,18 +215,55 @@ class GGP:
         }
 
     def _update_memory(self,
-                       genome: Genotype,
+                       genotype: Genotype,
                        weights: Dict[str, jnp.ndarray],
                        memory: jnp.ndarray,
                        gene_idx: int,
                        memory_idx: Union[int, jnp.ndarray]) -> Tuple[jnp.ndarray, jnp.ndarray]:
-        """Updates the memory at a given index computing the function at the genome index."""
-        f_idx = genome["genes"]["functions"].at[gene_idx].get()
-        x_arg = memory.at[genome["genes"]["inputs1"].at[gene_idx].get()].get() * weights["inputs1"].at[gene_idx].get()
-        y_arg = memory.at[genome["genes"]["inputs2"].at[gene_idx].get()].get() * weights["inputs2"].at[gene_idx].get()
+        """Updates the memory at a given index computing the function at the genotype index."""
+        f_idx = genotype["genes"]["functions"].at[gene_idx].get()
+        x_arg = memory.at[genotype["genes"]["inputs1"].at[gene_idx].get()].get() * weights["inputs1"].at[gene_idx].get()
+        y_arg = memory.at[genotype["genes"]["inputs2"].at[gene_idx].get()].get() * weights["inputs2"].at[gene_idx].get()
         f_computed = self.function_set.apply(f_idx, x_arg, y_arg) * weights["functions"].at[gene_idx].get()
         memory = memory.at[memory_idx].set(f_computed)
-        return genome, memory
+        return genotype, memory
+
+    # descriptors that can be used with MAP Elites
+    def compute_complexity(self, genotype: Genotype) -> jnp.ndarray:
+        """Compute the relative complexity of the graph/program.
+            Relative complexity is measured as the fraction of computing power used w.r.t.
+            that allowed. For CGP this boils down to the amount of used nodes, for LGP the
+            amount of program lines used.
+        """
+        return jnp.mean(self.compute_active_mask(genotype))
+
+    def compute_function_count(self, genotype: Genotype) -> jnp.ndarray:
+        """Compute the number of functions of each type used by the graph/program."""
+        active_mask = self.compute_active_mask(genotype)
+        f_genes = genotype["genes"]["functions"]
+
+        def _count_functions(
+                idx: int,
+                f_counter: jnp.ndarray,
+        ) -> jnp.ndarray:
+            f_id = f_genes.at[idx].get()
+            f_counter = f_counter.at[f_id].set(f_counter.at[f_id].get() + active_mask.at[idx].get())
+            return f_counter
+
+        functions_count = fori_loop(
+            lower=0,
+            upper=len(f_genes),
+            body_fun=_count_functions,
+            init_val=(jnp.zeros(len(self.function_set)))
+        )
+        return functions_count
+
+    def compute_function_arities(self, genotype: Genotype) -> jnp.ndarray:
+        """Compute the fraction of one/two arity functions employed in the graph/program."""
+        functions_count = self.compute_function_count(genotype)
+        one_arity_total = jnp.sum(jnp.where(self.function_set.arities == 1, functions_count, 0))
+        two_arity_total = jnp.sum(jnp.where(self.function_set.arities == 2, functions_count, 0))
+        return jnp.asarray([one_arity_total, two_arity_total]) / self.n_functions
 
 
 def _mutate_subgenome(
@@ -234,7 +272,7 @@ def _mutate_subgenome(
         key: RNGKey,
         p_mut: float
 ) -> jnp.ndarray:
-    """Performs elementwise mutation of a genome section.
+    """Performs elementwise mutation of a genotype section.
 
         For each gene, a random number in [0, 1) is drawn. If the number is
         greater than `p_mut`, the gene is kept from the original subgenome (`x1`);
