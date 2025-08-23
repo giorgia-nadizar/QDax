@@ -27,14 +27,17 @@ def test_genome_bounds() -> None:
     initial_lgp_genome = lgp.init(init_key)
 
     # check if bounds are respected at initialization
-    pytest.assume(jnp.all(initial_lgp_genome["genes"]["targets"] >= lhs_lower_bound))
-    pytest.assume(jnp.all(initial_lgp_genome["genes"]["targets"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(initial_lgp_genome["genes"]["inputs1"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(initial_lgp_genome["genes"]["inputs2"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(initial_lgp_genome["genes"]["functions"] < functions_bound))
-    pytest.assume(jnp.all(initial_lgp_genome["weights"]["functions"] == 1))
-    pytest.assume(jnp.all(initial_lgp_genome["weights"]["inputs1"] == 1))
-    pytest.assume(jnp.all(initial_lgp_genome["weights"]["inputs2"] == 1))
+    def _test_bounds(genome) -> None:
+        pytest.assume(jnp.all(genome["genes"]["targets"] >= lhs_lower_bound))
+        pytest.assume(jnp.all(genome["genes"]["targets"] < assignments_upper_bounds))
+        pytest.assume(jnp.all(genome["genes"]["inputs1"] < assignments_upper_bounds))
+        pytest.assume(jnp.all(genome["genes"]["inputs2"] < assignments_upper_bounds))
+        pytest.assume(jnp.all(genome["genes"]["functions"] < functions_bound))
+        pytest.assume(jnp.all(genome["weights"]["functions"] == 1))
+        pytest.assume(jnp.all(genome["weights"]["inputs1"] == 1))
+        pytest.assume(jnp.all(genome["weights"]["inputs2"] == 1))
+
+    _test_bounds(initial_lgp_genome)
 
     # mutate genome
     key, mut_key = jax.random.split(key)
@@ -44,14 +47,7 @@ def test_genome_bounds() -> None:
     )
 
     # check if bounds are respected after mutation
-    pytest.assume(jnp.all(mutated_lgp_genome["genes"]["targets"] >= lhs_lower_bound))
-    pytest.assume(jnp.all(mutated_lgp_genome["genes"]["targets"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(mutated_lgp_genome["genes"]["inputs1"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(mutated_lgp_genome["genes"]["inputs2"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(mutated_lgp_genome["genes"]["functions"] < functions_bound))
-    pytest.assume(jnp.all(mutated_lgp_genome["weights"]["functions"] == 1))
-    pytest.assume(jnp.all(mutated_lgp_genome["weights"]["inputs1"] == 1))
-    pytest.assume(jnp.all(mutated_lgp_genome["weights"]["inputs2"] == 1))
+    _test_bounds(mutated_lgp_genome)
 
     # init another genome and perform crossover
     key, another_init_key = jax.random.split(key)
@@ -60,14 +56,7 @@ def test_genome_bounds() -> None:
     crossed_genome = lgp.crossover(mutated_lgp_genome, another_lgp_genome, xover_key)
 
     # check if bounds are respected after crossover
-    pytest.assume(jnp.all(crossed_genome["genes"]["targets"] >= lhs_lower_bound))
-    pytest.assume(jnp.all(crossed_genome["genes"]["targets"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(crossed_genome["genes"]["inputs1"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(crossed_genome["genes"]["inputs2"] < assignments_upper_bounds))
-    pytest.assume(jnp.all(crossed_genome["genes"]["functions"] < functions_bound))
-    pytest.assume(jnp.all(crossed_genome["weights"]["functions"] == 1))
-    pytest.assume(jnp.all(crossed_genome["weights"]["inputs1"] == 1))
-    pytest.assume(jnp.all(crossed_genome["weights"]["inputs2"] == 1))
+    _test_bounds(crossed_genome)
 
 
 def test_known_genome_execution() -> None:

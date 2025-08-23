@@ -30,14 +30,17 @@ def test_genome_bounds() -> None:
     key, init_key = jax.random.split(key)
     initial_cgp_genome = cgp.init(init_key)
 
-    # check if bounds are respected at initialization
-    pytest.assume(jnp.all(initial_cgp_genome["genes"]["inputs1"] < connections_bounds))
-    pytest.assume(jnp.all(initial_cgp_genome["genes"]["inputs2"] < connections_bounds))
-    pytest.assume(jnp.all(initial_cgp_genome["genes"]["functions"] < functions_bound))
-    pytest.assume(jnp.all(initial_cgp_genome["genes"]["outputs"] < outputs_bound))
-    pytest.assume(jnp.all(initial_cgp_genome["weights"]["functions"] == 1))
-    pytest.assume(jnp.all(initial_cgp_genome["weights"]["inputs1"] == 1))
-    pytest.assume(jnp.all(initial_cgp_genome["weights"]["inputs2"] == 1))
+    def _test_bounds(genome) -> None:
+        # check if bounds are respected at initialization
+        pytest.assume(jnp.all(genome["genes"]["inputs1"] < connections_bounds))
+        pytest.assume(jnp.all(genome["genes"]["inputs2"] < connections_bounds))
+        pytest.assume(jnp.all(genome["genes"]["functions"] < functions_bound))
+        pytest.assume(jnp.all(genome["genes"]["outputs"] < outputs_bound))
+        pytest.assume(jnp.all(genome["weights"]["functions"] == 1))
+        pytest.assume(jnp.all(genome["weights"]["inputs1"] == 1))
+        pytest.assume(jnp.all(genome["weights"]["inputs2"] == 1))
+
+    _test_bounds(initial_cgp_genome)
 
     # mutate genome
     key, mut_key = jax.random.split(key)
@@ -48,13 +51,7 @@ def test_genome_bounds() -> None:
     )
 
     # check if bounds are respected after mutation
-    pytest.assume(jnp.all(mutated_cgp_genome["genes"]["inputs1"] < connections_bounds))
-    pytest.assume(jnp.all(mutated_cgp_genome["genes"]["inputs2"] < connections_bounds))
-    pytest.assume(jnp.all(mutated_cgp_genome["genes"]["functions"] < functions_bound))
-    pytest.assume(jnp.all(mutated_cgp_genome["genes"]["outputs"] < outputs_bound))
-    pytest.assume(jnp.all(mutated_cgp_genome["weights"]["functions"] == 1))
-    pytest.assume(jnp.all(mutated_cgp_genome["weights"]["inputs1"] == 1))
-    pytest.assume(jnp.all(mutated_cgp_genome["weights"]["inputs2"] == 1))
+    _test_bounds(mutated_cgp_genome)
 
 
 def test_known_genome_execution() -> None:
