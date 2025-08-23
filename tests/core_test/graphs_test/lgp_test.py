@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import optax
 import pytest
 
-from qdax.core.graphs.linear_genetic_programming import LGP, lgp_mutation, lgp_crossover
+from qdax.core.graphs.linear_genetic_programming import LGP, lgp_crossover
 
 
 def test_genome_bounds() -> None:
@@ -38,10 +38,9 @@ def test_genome_bounds() -> None:
 
     # mutate genome
     key, mut_key = jax.random.split(key)
-    mutated_lgp_genome = lgp_mutation(
+    mutated_lgp_genome = lgp.mutate(
         genotype=initial_lgp_genome,
         rnd_key=mut_key,
-        lgp=lgp
     )
 
     # check if bounds are respected after mutation

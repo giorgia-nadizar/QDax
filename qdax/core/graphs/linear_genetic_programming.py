@@ -37,15 +37,20 @@ class LGP(GGP):
         """Number of registers that can be assigned by LGP."""
         return self.n_computation_registers + self.n_outputs
 
+    @property
+    def n_functions(self) -> int:
+        """Max number of functions that can be performed by LGP."""
+        return self.n_program_lines
+
     def init(
             self,
-            rngs: RNGKey,
+            rnd_key: RNGKey,
             *args,
     ) -> Genotype:
         """Initializes a random LGP genome.
 
             Args:
-                rngs: JAX PRNG key used to generate random genome values.
+                rnd_key: JAX PRNG key used to generate random genome values.
                 *args: Unused additional arguments for API compatibility.
 
             Returns:
@@ -68,7 +73,7 @@ class LGP(GGP):
         rhs_mask = self.n_registers * jnp.ones(self.n_program_lines)
 
         # generate the random float values for each section of the genome
-        lines_key, weights_key = random.split(rngs, 2)
+        lines_key, weights_key = random.split(rnd_key, 2)
         random_lines = random.uniform(key=lines_key, shape=(self.n_program_lines * 4,))
         random_targets, random_x, random_y, random_f = jnp.split(random_lines, 4)
         random_weights = random.uniform(key=weights_key, shape=(self.n_program_lines * 3,)) * 2 - 1
@@ -184,24 +189,74 @@ class LGP(GGP):
         )
         return active_lines.astype(int)
 
+    def mutate(
+            self,
+            genotype: Genotype,
+            rnd_key: RNGKey,
+            p_mut_targets: float = 0.3,
+            p_mut_inputs: float = 0.1,
+            p_mut_functions: float = 0.1,
+            weights_mut_sigma: float = 0.1,
+            mutation_probabilities: Optional[Dict[str, float]] = None
+    ) -> Genotype:
+        """Mutates a LGP genome using int-flip mutation.
+
+            This mutation is implemented as a form of crossover with a newly
+            generated "donor" genome: for each gene, the value is taken from the
+            donor with a low probability, otherwise kept from the original genome.
+            This ensures that all mutated genes remain valid (i.e., within the
+            correct index ranges for their respective genome section).
+
+            The function is compatible with standard emitters when wrapped using
+            `functools.partial`.
+
+            Mutation probabilities and sigma can be specified either via individual arguments or by
+            passing a dictionary to `mutation_probabilities`, the dictionary values override
+            the individual arguments.
+
+            Args:
+                genotype: the CGP genome parameters to mutate.
+                rnd_key: JAX PRNG key for randomness.
+                p_mut_targets: probability of mutating each target assignment gene
+                    (ignored if overridden via `mutation_probabilities`).
+                p_mut_inputs: probability of mutating each input connection gene
+                    (ignored if overridden via `mutation_probabilities`).
+                p_mut_functions: probability of mutating each function gene
+                    (ignored if overridden via `mutation_probabilities`).
+                weights_mut_sigma: mutation step for weights Gaussian mutation
+                    (ignored if overridden via `mutation_probabilities`).
+                mutation_probabilities: optional dictionary mapping `"inputs"`,
+                    `"functions"`, `"targets"`, and `"weights_sigma"` to their mutation probabilities.
+
+            Returns:
+                The mutated genome.
+            """
+
+        mutation_probabilities = mutation_probabilities or {}
+        targets_key, super_key = random.split(rnd_key, 2)
+        temporary_genotype, donor_genotype = super()._mutate(genotype, super_key, p_mut_inputs, p_mut_functions,
+                                                             weights_mut_sigma, mutation_probabilities)
+        p_mut_targets = mutation_probabilities.get("targets", p_mut_targets)
+
+        return {
+            "genes": {
+                "targets": _mutate_subgenome(genotype["genes"]["targets"],
+                                             donor_genotype["genes"]["targets"],
+                                             targets_key,
+                                             p_mut_targets),
+                "inputs1": temporary_genotype["genes"]["inputs1"],
+                "inputs2": temporary_genotype["genes"]["inputs2"],
+                "functions": temporary_genotype["genes"]["functions"],
+            },
+            "weights": temporary_genotype["weights"]
+        }
+
     def _get_readable_expression(
             self,
             lgp_genome_params: Genotype,
             inputs_mapping_fn: Callable[[int], str],
             outputs_mapping_fn: Callable[[int], str], ) -> List[str]:
-        """Generate a human-readable symbolic representation of a LGP genome.
-
-            Unary functions are printed in the form:
-                f(x)
-            Binary functions are printed in the form:
-                (x op y)
-            where `op` is the function symbol (e.g., `+`, `*`, `sin`).
-
-            Args:
-                lgp_genome_params: LGP genotype.
-                inputs_mapping_fn: Mapping from input indices to custom names.
-                outputs_mapping_fn Mapping from output indices to custom names.
-            """
+        """Worker class for computing the readable symbolic representation of a CGP genotype."""
         n_in = self.n_inputs + len(self.input_constants)
         targets = []
 
@@ -358,94 +413,5 @@ def lgp_crossover(
             "functions": jnp.where(mask,
                                    genotype1["weights"]["functions"],
                                    genotype2["weights"]["functions"]),
-        }
-    }
-
-
-def lgp_mutation(
-        genotype: Genotype,
-        rnd_key: RNGKey,
-        lgp: LGP,
-        p_mut_targets: float = 0.3,
-        p_mut_inputs: float = 0.1,
-        p_mut_functions: float = 0.1,
-        weights_mut_sigma: float = 0.1,
-        mutation_probabilities: Optional[Dict[str, float]] = None
-) -> Genotype:
-    """Mutates a LGP genome using int-flip mutation.
-
-        This mutation is implemented as a form of crossover with a newly
-        generated "donor" genome: for each gene, the value is taken from the
-        donor with a low probability, otherwise kept from the original genome.
-        This ensures that all mutated genes remain valid (i.e., within the
-        correct index ranges for their respective genome section).
-
-        The function is compatible with standard emitters when wrapped using
-        `functools.partial` to pre-bind the `lgp` instance and mutation
-        probabilities.
-
-        Mutation probabilities can be specified either via individual arguments
-        (`p_mut_targets`, `p_mut_inputs`, `p_mut_functions`, `weights_mut_sigma`) or by passing a
-        dictionary to `mutation_probabilities` with keys `"inputs"`, `"functions"`,
-        `"targets"` and `"weights_sigma"`. When both are provided, the dictionary values override
-        the individual arguments.
-
-        Args:
-            genotype: the CGP genome parameters to mutate.
-            rnd_key: JAX PRNG key for randomness.
-            lgp: LGP instance used to initialize the donor genome.
-            p_mut_targets: probability of mutating each target assignment gene
-                (ignored if overridden via `mutation_probabilities`).
-            p_mut_inputs: probability of mutating each input connection gene
-                (ignored if overridden via `mutation_probabilities`).
-            p_mut_functions: probability of mutating each function gene
-                (ignored if overridden via `mutation_probabilities`).
-            weights_mut_sigma: mutation step for weights Gaussian mutation
-                (ignored if overridden via `mutation_probabilities`).
-            mutation_probabilities: optional dictionary mapping `"inputs"`,
-                `"functions"`, `"targets"`, and `"weights_sigma"` to their mutation probabilities.
-
-        Returns:
-            The mutated genome.
-        """
-
-    # extract mutation probabilities if passed through a dictionary
-    mutation_probabilities = mutation_probabilities or {}
-    p_mut_targets = mutation_probabilities.get("target", p_mut_targets)
-    p_mut_inputs = mutation_probabilities.get("inputs", p_mut_inputs)
-    p_mut_functions = mutation_probabilities.get("functions", p_mut_functions)
-    weights_mut_sigma = mutation_probabilities.get("weights_sigma", weights_mut_sigma)
-
-    new_key, targets_key, x_key, y_key, f_key, weights_key = random.split(rnd_key, 6)
-    # generate the donor genotype -> only few genes from this will be used
-    donor_genotype = lgp.init(new_key)
-
-    weights_noise = weights_mut_sigma * random.normal(weights_key, shape=(lgp.n_program_lines * 3,))
-    line_w_noise, i1_w_noise, i2_w_noise = jnp.split(weights_noise, 3)
-
-    # mutate each sub-part of the genome
-    return {
-        "genes": {
-            "targets": _mutate_subgenome(genotype["genes"]["targets"],
-                                         donor_genotype["genes"]["targets"],
-                                         targets_key,
-                                         p_mut_targets),
-            "inputs1": _mutate_subgenome(genotype["genes"]["inputs1"],
-                                         donor_genotype["genes"]["inputs1"],
-                                         x_key,
-                                         p_mut_inputs),
-            "inputs2": _mutate_subgenome(genotype["genes"]["inputs2"],
-                                         donor_genotype["genes"]["inputs2"],
-                                         y_key,
-                                         p_mut_inputs),
-            "functions": _mutate_subgenome(genotype["genes"]["functions"],
-                                           donor_genotype["genes"]["functions"],
-                                           f_key,
-                                           p_mut_functions),
-        },
-        "weights": {
-            "inputs1": genotype["weights"]["inputs1"] + lgp.weighted_inputs * i1_w_noise,
-            "inputs2": genotype["weights"]["inputs2"] + lgp.weighted_inputs * i2_w_noise,
-            "functions": genotype["weights"]["functions"] + lgp.weighted_functions * line_w_noise,
         }
     }

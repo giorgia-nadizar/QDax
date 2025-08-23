@@ -242,7 +242,7 @@ class CGP(GGP):
             cgp_genome_params: Genotype,
             inputs_mapping_fn: Callable[[int], str],
             outputs_mapping_fn: Callable[[int], str], ) -> List[str]:
-        """Worker class for computing the readable symbolic representation of a GGP genotype."""
+        """Worker class for computing the readable symbolic representation of a CGP genotype."""
         n_in = self.n_inputs + len(self.input_constants)
         targets = []
 

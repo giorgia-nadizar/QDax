@@ -6,7 +6,7 @@ import pytest
 import qdax.tasks.brax.v1 as environments
 from qdax.core.containers.mapelites_repertoire import compute_cvt_centroids
 from qdax.core.emitters.standard_emitters import MixingEmitter
-from qdax.core.graphs.linear_genetic_programming import LGP, lgp_mutation, lgp_crossover
+from qdax.core.graphs.linear_genetic_programming import LGP, lgp_crossover
 from qdax.core.map_elites import MAPElites
 from qdax.core.neuroevolution.buffers.buffer import QDTransition
 import jax.numpy as jnp
@@ -95,7 +95,7 @@ def test_lgp_with_me() -> None:
 
     # Define emitter
     lgp_mutation_fn = functools.partial(
-        lgp_mutation, lgp=policy_graph
+        policy_graph.mutate
     )
     lgp_crossover_fn = functools.partial(
         lgp_crossover, lgp=policy_graph
@@ -240,7 +240,7 @@ def test_lgp_with_me_ask_tell() -> None:
 
     # Define emitter
     lgp_mutation_fn = functools.partial(
-        lgp_mutation, lgp=policy_graph
+        policy_graph.mutate
     )
     lgp_crossover_fn = functools.partial(
         lgp_crossover, lgp=policy_graph
