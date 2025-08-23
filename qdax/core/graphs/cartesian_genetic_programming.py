@@ -85,7 +85,7 @@ class CGP(GGP):
         }
 
     def apply(self,
-              cgp_genome_params: Genotype,
+              genotype: Genotype,
               obs: jnp.ndarray,
               weights: Dict[str, jnp.ndarray] = None,
               ) -> jnp.ndarray:
@@ -96,7 +96,7 @@ class CGP(GGP):
             sequentially and stored in a buffer, starting from the provided inputs and constants.
 
             Args:
-                cgp_genome_params: dictionary of CGP genome parameters.
+                genotype: dictionary of CGP genome parameters.
                 weights: dictionary of weights for nodes and/or connections,
                     defaults to the CGP weights (or 1 if not weighted).
                 obs: problem inputs/observation.
@@ -107,7 +107,7 @@ class CGP(GGP):
             """
 
         weights = weights or {}
-        weights = {**cgp_genome_params["weights"], **weights}
+        weights = {**genotype["weights"], **weights}
 
         # define function to update buffer in a certain position: get inputs from the x and y connections
         # then apply the function
@@ -127,15 +127,15 @@ class CGP(GGP):
             lower=self.n_inputs + len(self.input_constants),
             upper=len(buffer),
             body_fun=_update_buffer,
-            init_val=(cgp_genome_params, buffer))
-        outputs = jnp.take(buffer, cgp_genome_params["genes"]["outputs"])
+            init_val=(genotype, buffer))
+        outputs = jnp.take(buffer, genotype["genes"]["outputs"])
 
         # apply wrapper to constraint the outputs in the correct domain
         return self.outputs_wrapper(outputs)
 
     def compute_active_mask(
             self,
-            cgp_genome_params: Genotype,
+            genotype: Genotype,
     ) -> Mask:
         """
         Compute the mask of active (expressed) nodes in a CGP genome.
@@ -143,7 +143,7 @@ class CGP(GGP):
         connections and recursively marking all nodes that contribute to them.
 
         Args:
-            cgp_genome_params: the CGP genome parameters.
+            genotype: the CGP genome parameters.
 
         Returns:
             Mask: a binary mask (1 = active, 0 = inactive) of length `n_nodes`,
@@ -151,7 +151,7 @@ class CGP(GGP):
         """
 
         active_buffer = jnp.zeros(self.buffer_size)
-        active_buffer = active_buffer.at[cgp_genome_params["genes"]["outputs"]].set(1)
+        active_buffer = active_buffer.at[genotype["genes"]["outputs"]].set(1)
 
         # define function to mark if a buffer is active in a certain position
         def _compute_active_nodes(
@@ -174,7 +174,7 @@ class CGP(GGP):
             lower=0,
             upper=self.n_nodes,
             body_fun=_compute_active_nodes,
-            init_val=(cgp_genome_params, active_buffer),
+            init_val=(genotype, active_buffer),
         )
         return active_buffer[-self.n_nodes:].astype(int)
 
@@ -239,7 +239,7 @@ class CGP(GGP):
 
     def _get_readable_expression(
             self,
-            cgp_genome_params: Genotype,
+            genotype: Genotype,
             inputs_mapping_fn: Callable[[int], str],
             outputs_mapping_fn: Callable[[int], str], ) -> List[str]:
         """Worker class for computing the readable symbolic representation of a CGP genotype."""
@@ -264,8 +264,8 @@ class CGP(GGP):
                 return f"{node_weight}({x_weight}{_replace_cgp_expression(cgp_genes, int(cgp_genes['genes']['inputs1'][gene_idx]))}" \
                        f"{function.symbol}{y_weight}{_replace_cgp_expression(cgp_genes, int(cgp_genes['genes']['inputs2'][gene_idx]))})"
 
-        for i, out in enumerate(cgp_genome_params["genes"]["outputs"]):
+        for i, out in enumerate(genotype["genes"]["outputs"]):
             targets.append(
-                f"{outputs_mapping_fn(int(i))} = {self.outputs_wrapper.__name__}({_replace_cgp_expression(cgp_genome_params, out)})")
+                f"{outputs_mapping_fn(int(i))} = {self.outputs_wrapper.__name__}({_replace_cgp_expression(genotype, out)})")
 
         return targets

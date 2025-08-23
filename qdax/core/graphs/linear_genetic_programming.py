@@ -90,7 +90,7 @@ class LGP(GGP):
         }
 
     def apply(self,
-              lgp_genome_params: Genotype,
+              genotype: Genotype,
               obs: jnp.ndarray,
               weights: Dict[str, jnp.ndarray] = None,
               ) -> jnp.ndarray:
@@ -101,7 +101,7 @@ class LGP(GGP):
             sequentially and stored in the registers, starting from the provided inputs and constants.
 
             Args:
-                lgp_genome_params: dictionary of LGP genome parameters.
+                genotype: dictionary of LGP genome parameters.
                 weights: dictionary of weights for nodes and/or connections,
                     defaults to the CGP weights (or 1 if not weighted).
                 obs: problem inputs/observation.
@@ -113,7 +113,7 @@ class LGP(GGP):
 
         # take provided weights and replace with genome ones if missing
         weights = weights or {}
-        weights = {**lgp_genome_params["weights"], **weights}
+        weights = {**genotype["weights"], **weights}
 
         # define function to update the registers following the instructions of a 
         # given program line: get inputs from the x and y connections, then apply the function
@@ -134,7 +134,7 @@ class LGP(GGP):
             lower=0,
             upper=self.n_program_lines,
             body_fun=_update_registers,
-            init_val=(lgp_genome_params, registers))
+            init_val=(genotype, registers))
         outputs = registers[-self.n_outputs:]
 
         # apply wrapper to constraint the outputs in the correct domain
@@ -142,7 +142,7 @@ class LGP(GGP):
 
     def compute_active_mask(
             self,
-            lgp_genome_params: Genotype,
+            genotype: Genotype,
     ) -> Mask:
         """
         Compute the mask of active (expressed) program lines in a LGP genome.
@@ -150,7 +150,7 @@ class LGP(GGP):
         registers and recursively marking all lines that contribute to them.
 
         Args:
-            lgp_genome_params: the CGP genome parameters.
+            genotype: the CGP genome parameters.
 
         Returns:
             Mask: a binary mask (1 = active, 0 = inactive) of length `n_program_lines`,
@@ -185,7 +185,7 @@ class LGP(GGP):
             lower=0,
             upper=self.n_program_lines,
             body_fun=_compute_active_lines,
-            init_val=(lgp_genome_params, active_lines, registers_mask)
+            init_val=(genotype, active_lines, registers_mask)
         )
         return active_lines.astype(int)
 
@@ -310,7 +310,7 @@ class LGP(GGP):
 
     def get_readable_program(
             self,
-            lgp_genome_params: Genotype) -> str:
+            genotype: Genotype) -> str:
         """Generate a human-readable Python-like representation of an LGP program.
 
             The LGP genome is unrolled into a sequence of instructions that
@@ -327,7 +327,7 @@ class LGP(GGP):
             The outputs are read from the last `n_outputs` registers.
 
             Args:
-                lgp_genome_params: LGP genotype.
+                genotype: LGP genotype.
 
             Returns:
                 str: A string representing the program as a Python function,
@@ -349,18 +349,18 @@ class LGP(GGP):
                          f"r[{list(range(self.n_inputs, self.n_inputs + len(self.input_constants)))}] = {self.input_constants}"]
 
         functions = list(self.function_set.function_set.values())
-        active_lines = self.compute_active_mask(lgp_genome_params)
+        active_lines = self.compute_active_mask(genotype)
 
         # execution
         for line_idx in range(self.n_program_lines):
             if active_lines[line_idx]:
-                function = functions[lgp_genome_params["genes"]["functions"][line_idx]]
-                line_weight = f"{lgp_genome_params['weights']['lines'][line_idx]:.2f}*(" if self.weighted_functions else ""
-                x_weight = f"{lgp_genome_params['weights']['inputs1'][line_idx]:.2f}*" if self.weighted_inputs else ""
-                y_weight = f"{lgp_genome_params['weights']['inputs2'][line_idx]:.2f}*" if self.weighted_inputs else ""
-                target_reg = lgp_genome_params['genes']['targets'][line_idx]
-                x_reg = lgp_genome_params['genes']['inputs1'][line_idx]
-                y_reg = lgp_genome_params['genes']['inputs2'][line_idx]
+                function = functions[genotype["genes"]["functions"][line_idx]]
+                line_weight = f"{genotype['weights']['lines'][line_idx]:.2f}*(" if self.weighted_functions else ""
+                x_weight = f"{genotype['weights']['inputs1'][line_idx]:.2f}*" if self.weighted_inputs else ""
+                y_weight = f"{genotype['weights']['inputs2'][line_idx]:.2f}*" if self.weighted_inputs else ""
+                target_reg = genotype['genes']['targets'][line_idx]
+                x_reg = genotype['genes']['inputs1'][line_idx]
+                y_reg = genotype['genes']['inputs2'][line_idx]
                 if function.arity > 1:
                     program_lines.append(f"r[{target_reg}] = {line_weight} {x_weight}r[{x_reg}] {function.symbol} "
                                          f"{y_weight}r[{y_reg}] {')' if self.weighted_functions else ''}")
@@ -375,7 +375,7 @@ class LGP(GGP):
 
     def _get_readable_expression(
             self,
-            lgp_genome_params: Genotype,
+            genotype: Genotype,
             inputs_mapping_fn: Callable[[int], str],
             outputs_mapping_fn: Callable[[int], str], ) -> List[str]:
         """Worker class for computing the readable symbolic representation of a CGP genotype."""
@@ -407,7 +407,8 @@ class LGP(GGP):
         for output_idx in range(self.n_outputs):
             register_idx = self.n_registers - self.n_outputs + output_idx
             targets.append(
-                f"{outputs_mapping_fn(output_idx)} = {self.outputs_wrapper.__name__}({_replace_lgp_expression(lgp_genome_params, register_idx, self.n_program_lines)})"
+                f"{outputs_mapping_fn(output_idx)} = {self.outputs_wrapper.__name__}("
+                f"{_replace_lgp_expression(genotype, register_idx, self.n_program_lines)})"
             )
 
         return targets
