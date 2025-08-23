@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import optax
 import pytest
 
-from qdax.core.graphs.cartesian_genetic_programming import CGP, cgp_mutation
+from qdax.core.graphs.cartesian_genetic_programming import CGP
 
 
 def test_genome_bounds() -> None:
@@ -41,10 +41,10 @@ def test_genome_bounds() -> None:
 
     # mutate genome
     key, mut_key = jax.random.split(key)
-    mutated_cgp_genome = cgp_mutation(
+    mutated_cgp_genome = cgp.mutate(
         genotype=initial_cgp_genome,
         rnd_key=mut_key,
-        cgp=cgp
+        # cgp=cgp
     )
 
     # check if bounds are respected after mutation

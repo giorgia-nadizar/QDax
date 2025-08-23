@@ -7,7 +7,7 @@ import pytest
 import qdax.tasks.brax.v1 as environments
 from qdax.core.containers.mapelites_repertoire import compute_cvt_centroids
 from qdax.core.emitters.standard_emitters import MixingEmitter
-from qdax.core.graphs.cartesian_genetic_programming import CGP, cgp_mutation
+from qdax.core.graphs.cartesian_genetic_programming import CGP
 from qdax.core.map_elites import MAPElites
 from qdax.core.neuroevolution.buffers.buffer import QDTransition
 from qdax.tasks.brax.v1.env_creators import scoring_function_brax_envs as scoring_function
@@ -96,7 +96,7 @@ def test_cgp_with_me() -> None:
 
     # Define emitter
     cgp_variation_fn = functools.partial(
-        cgp_mutation, cgp=policy_graph  # , mutation_probabilities={"inputs" : .2}
+        policy_graph.mutate  # , mutation_probabilities={"inputs" : .2}
     )
     mixing_emitter = MixingEmitter(
         mutation_fn=cgp_variation_fn,
@@ -239,7 +239,7 @@ def test_cgp_with_me_ask_tell() -> None:
 
     # Define emitter
     cgp_variation_fn = functools.partial(
-        cgp_mutation, cgp=policy_graph  # , mutation_probabilities={"inputs" : .2}
+        policy_graph.mutate  # , mutation_probabilities={"inputs" : .2}
     )
     mixing_emitter = MixingEmitter(
         mutation_fn=cgp_variation_fn,

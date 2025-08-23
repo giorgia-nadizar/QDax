@@ -1,6 +1,6 @@
 from flax import struct
 import jax.numpy as jnp
-from typing import Callable, Dict, Union, List, Tuple
+from typing import Callable, Dict, Union, List, Tuple, Optional
 
 from jax import random
 
@@ -35,21 +35,111 @@ class GGP:
     weighted_functions: bool = False
     weighted_inputs: bool = False
 
-    def init(self, rngs: RNGKey, *args):
+    @property
+    def n_functions(self) -> int:
+        """Max number of functions that can be performed by GGP."""
+        raise NotImplementedError
+
+    def init(self, rnd_key: RNGKey, *args):
         """Initialize a random genome (to be implemented by subclasses)."""
         raise NotImplementedError
 
-    def apply(self, genome_params: Genotype, obs: jnp.ndarray, weights: Dict[str, jnp.ndarray] = None, ) -> jnp.ndarray:
+    def apply(self, genotype: Genotype, obs: jnp.ndarray, weights: Dict[str, jnp.ndarray] = None, ) -> jnp.ndarray:
         """Evaluate a genome on an input observation (subclass-specific)."""
         raise NotImplementedError
 
-    def compute_active_mask(self, genome_params: Genotype, ) -> Mask:
+    def compute_active_mask(self, genotype: Genotype, ) -> Mask:
         """Compute the mask of active (expressed) elements in a genome (subclass-specific)."""
         raise NotImplementedError
 
+    def mutate(self,
+               genotype: Genotype,
+               rnd_key: RNGKey,
+               p_mut_inputs: float = 0.1,
+               p_mut_functions: float = 0.1,
+               weights_mut_sigma: float = 0.1,
+               mutation_probabilities: Optional[Dict[str, float]] = None
+               ) -> Genotype:
+        """Mutates a GGP genome using int-flip mutation. If the genome is weighted, the weights
+            are mutated with Gaussian mutation.
+
+            This mutation is implemented as a form of crossover with a newly
+            generated "donor" genome: for each gene, the value is taken from the
+            donor with a low probability, otherwise kept from the original genome.
+            This ensures that all mutated genes remain valid (i.e., within the
+            correct index ranges for their respective genome section).
+
+            The function is compatible with standard emitters when wrapped using
+            `functools.partial`.
+
+            Mutation probabilities and sigma can be specified either via individual arguments or by
+            passing a dictionary to `mutation_probabilities`, the dictionary values override
+            the individual arguments.
+
+            Args:
+                genotype: the CGP genome parameters to mutate.
+                rnd_key: JAX PRNG key for randomness.
+                p_mut_inputs: probability of mutating each input connection gene
+                    (ignored if overridden via `mutation_probabilities`).
+                p_mut_functions: probability of mutating each function gene
+                    (ignored if overridden via `mutation_probabilities`).
+                weights_mut_sigma: mutation step for weights Gaussian mutation
+                    (ignored if overridden via `mutation_probabilities`).
+                mutation_probabilities: optional dictionary mapping genome parts
+                 to their mutation probabilities.
+
+            Returns:
+                The mutated genome.
+            """
+        return self._mutate(genotype, rnd_key, p_mut_inputs, p_mut_functions, weights_mut_sigma,
+                            mutation_probabilities)[0]
+
+    def _mutate(self,
+                genotype: Genotype,
+                rnd_key: RNGKey,
+                p_mut_inputs: float = 0.1,
+                p_mut_functions: float = 0.1,
+                weights_mut_sigma: float = 0.1,
+                mutation_probabilities: Optional[Dict[str, float]] = None
+                ) -> Tuple[Genotype, Genotype]:
+        """Worker class for mutation that returns both the mutated genome and the donor."""
+        # extract mutation probabilities if passed through a dictionary
+        mutation_probabilities = mutation_probabilities or {}
+        p_mut_inputs = mutation_probabilities.get("inputs", p_mut_inputs)
+        p_mut_functions = mutation_probabilities.get("functions", p_mut_functions)
+        weights_mut_sigma = mutation_probabilities.get("weights_sigma", weights_mut_sigma)
+
+        new_key, x_key, y_key, f_key, weights_key = random.split(rnd_key, 5)
+        # generate the donor genotype -> only few genes from this will be used
+        donor_genotype = self.init(new_key)
+        weights_noise = weights_mut_sigma * random.normal(weights_key, shape=(self.n_functions * 3,))
+        fn_w_noise, i1_w_noise, i2_w_noise = jnp.split(weights_noise, 3)
+
+        return {
+            "genes": {
+                "inputs1": _mutate_subgenome(genotype["genes"]["inputs1"],
+                                             donor_genotype["genes"]["inputs1"],
+                                             x_key,
+                                             p_mut_inputs),
+                "inputs2": _mutate_subgenome(genotype["genes"]["inputs2"],
+                                             donor_genotype["genes"]["inputs2"],
+                                             y_key,
+                                             p_mut_inputs),
+                "functions": _mutate_subgenome(genotype["genes"]["functions"],
+                                               donor_genotype["genes"]["functions"],
+                                               f_key,
+                                               p_mut_functions),
+            },
+            "weights": {
+                "inputs1": genotype["weights"]["inputs1"] + self.weighted_inputs * i1_w_noise,
+                "inputs2": genotype["weights"]["inputs2"] + self.weighted_inputs * i2_w_noise,
+                "functions": genotype["weights"]["functions"] + self.weighted_functions * fn_w_noise,
+            }
+        }, donor_genotype
+
     def get_readable_expression(
             self,
-            genome_params: Genotype,
+            genotype: Genotype,
             inputs_mapping: Union[Dict[int, str], Callable[[int], str]] = None,
             outputs_mapping: Union[Dict[int, str], Callable[[int], str]] = None
     ) -> str:
@@ -62,14 +152,14 @@ class GGP:
             where `op` is the function symbol (e.g., `+`, `*`, `sin`).
 
             Args:
-                genome_params: GGP genotype.
-                inputs_mapping (dict[int,str] | callable[[int], str]], optional):
+                genotype: GGP genotype.
+                inputs_mapping (dict[int,str] | callable[[int], str], optional):
                     Mapping from input indices to custom names.
                     - If a dict, keys are input indices
                     - If a callable, it is called with the input index and must
                       return the desired string
                     Defaults to "i0", "i1", ...
-                outputs_mapping (dict[int,str] | callable[[int], str]], optional):
+                outputs_mapping (dict[int,str] | callable[[int], str], optional):
                     Mapping from output indices to custom names.
                     - If a dict, keys are output indices
                     - If a callable, it is called with the output index and must
@@ -96,16 +186,16 @@ class GGP:
         else:
             outputs_mapping_fn = outputs_mapping
 
-        targets = self._get_readable_expression(genome_params, inputs_mapping_fn, outputs_mapping_fn)
+        targets = self._get_readable_expression(genotype, inputs_mapping_fn, outputs_mapping_fn)
         return "\n".join(targets)
 
     def _get_readable_expression(
             self,
-            genome_params: Genotype,
+            genotype: Genotype,
             inputs_mapping_fn: Callable[[int], str],
             outputs_mapping_fn: Callable[[int], str]
     ) -> List[str]:
-        """Worker class for """
+        """Worker class for computing the readable symbolic representation of a GGP genotype."""
         raise NotImplementedError
 
     def _weights_representations(self, genome: Genotype, gene_idx: int) -> Tuple[str, str, str]:
@@ -129,6 +219,7 @@ class GGP:
                        memory: jnp.ndarray,
                        gene_idx: int,
                        memory_idx: int) -> Tuple[jnp.ndarray, jnp.ndarray]:
+        """Updates the memory at a given index computing the function at the genome index."""
         f_idx = genome["genes"]["functions"].at[gene_idx].get()
         x_arg = memory.at[genome["genes"]["inputs1"].at[gene_idx].get()].get() * weights["inputs1"].at[gene_idx].get()
         y_arg = memory.at[genome["genes"]["inputs2"].at[gene_idx].get()].get() * weights["inputs2"].at[gene_idx].get()
