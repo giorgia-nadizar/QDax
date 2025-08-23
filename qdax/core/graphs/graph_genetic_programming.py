@@ -218,7 +218,7 @@ class GGP:
                        weights: Dict[str, jnp.ndarray],
                        memory: jnp.ndarray,
                        gene_idx: int,
-                       memory_idx: int) -> Tuple[jnp.ndarray, jnp.ndarray]:
+                       memory_idx: Union[int, jnp.ndarray]) -> Tuple[jnp.ndarray, jnp.ndarray]:
         """Updates the memory at a given index computing the function at the genome index."""
         f_idx = genome["genes"]["functions"].at[gene_idx].get()
         x_arg = memory.at[genome["genes"]["inputs1"].at[gene_idx].get()].get() * weights["inputs1"].at[gene_idx].get()
