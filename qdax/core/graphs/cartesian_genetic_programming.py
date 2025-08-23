@@ -264,7 +264,7 @@ class CGP(GGP):
                 return f"{node_weight}({x_weight}{_replace_cgp_expression(cgp_genes, int(cgp_genes['genes']['inputs1'][gene_idx]))}" \
                        f"{function.symbol}{y_weight}{_replace_cgp_expression(cgp_genes, int(cgp_genes['genes']['inputs2'][gene_idx]))})"
 
-        for i, out in enumerate(genotype["genes"]["outputs"]):
+        for i, out in enumerate(genotype["genes"]["outputs"].tolist()):
             targets.append(
                 f"{outputs_mapping_fn(int(i))} = {self.outputs_wrapper.__name__}({_replace_cgp_expression(genotype, out)})")
 
