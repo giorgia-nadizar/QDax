@@ -96,11 +96,11 @@ def test_cgp_with_me() -> None:
     )
 
     # Define emitter
-    cgp_variation_fn = functools.partial(
+    cgp_mutation_fn = functools.partial(
         policy_graph.mutate  # , mutation_probabilities={"inputs" : .2}
     )
     mixing_emitter = MixingEmitter(
-        mutation_fn=cgp_variation_fn,
+        mutation_fn=cgp_mutation_fn,
         variation_fn=None,
         variation_percentage=0.0,  # note: CGP works with mutation only
         batch_size=batch_size
@@ -239,11 +239,11 @@ def test_cgp_with_me_ask_tell() -> None:
     )
 
     # Define emitter
-    cgp_variation_fn = functools.partial(
+    cgp_mutation_fn = functools.partial(
         policy_graph.mutate  # , mutation_probabilities={"inputs" : .2}
     )
     mixing_emitter = MixingEmitter(
-        mutation_fn=cgp_variation_fn,
+        mutation_fn=cgp_mutation_fn,
         variation_fn=None,
         variation_percentage=0.0,  # note: CGP works with mutation only
         batch_size=batch_size
@@ -405,11 +405,11 @@ def test_cgp_graph_descriptors_with_me_ask_tell() -> None:
     )
 
     # Define emitter
-    cgp_variation_fn = functools.partial(
+    cgp_mutation_fn = functools.partial(
         policy_graph.mutate  # , mutation_probabilities={"inputs" : .2}
     )
     mixing_emitter = MixingEmitter(
-        mutation_fn=cgp_variation_fn,
+        mutation_fn=cgp_mutation_fn,
         variation_fn=None,
         variation_percentage=0.0,  # note: CGP works with mutation only
         batch_size=batch_size

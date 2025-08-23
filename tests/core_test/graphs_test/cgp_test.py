@@ -153,7 +153,7 @@ def test_active_graph() -> None:
 
 
 def test_active_graph_jit() -> None:
-    """Test that the computation of the active graph is jittable.
+    """Test that the computation of the active graph works with jit.
     """
     key = jax.random.key(42)
     cgp = CGP(
@@ -167,7 +167,7 @@ def test_active_graph_jit() -> None:
     init_cgp_genomes = jax.vmap(cgp.init)(keys)
 
     # Check it runs
-    jax.vmap(cgp.compute_active_mask)(init_cgp_genomes)
+    jax.vmap(jax.jit(cgp.compute_active_mask))(init_cgp_genomes)
 
 
 def test_readable_expression() -> None:
@@ -239,7 +239,7 @@ def test_gradient_optimization_of_function_weights() -> None:
     z = jax.random.normal(z_key, (n_samples,))
     observations = jnp.vstack((x, y, z)).T
     noise = 0.01 * jax.random.normal(noise_key, (n_samples, cgp.n_outputs))
-    target_outputs = (jax.vmap(cgp.apply, (None, 0, None))
+    target_outputs = (jax.vmap(jax.jit(cgp.apply), (None, 0, None))
                       (cgp_genome, observations, {"functions": target_weights}) + noise)
 
     # Initialize weights to random values
@@ -247,7 +247,7 @@ def test_gradient_optimization_of_function_weights() -> None:
 
     # Loss = mean squared error
     def loss_fn(weights, genome, inputs, target_y):
-        pred_y = jax.vmap(cgp.apply, (None, 0, None))(genome, inputs, {"functions": weights})
+        pred_y = jax.vmap(jax.jit(cgp.apply), (None, 0, None))(genome, inputs, {"functions": weights})
         return jnp.mean((pred_y - target_y) ** 2)
 
     @jax.jit
@@ -305,7 +305,7 @@ def test_gradient_optimization_of_input_weights() -> None:
     y = jax.random.normal(y_key, (n_samples,))
     z = jax.random.normal(z_key, (n_samples,))
     observations = jnp.vstack((x, y, z)).T
-    target_outputs = (jax.vmap(cgp.apply, (None, 0, None))
+    target_outputs = (jax.vmap(jax.jit(cgp.apply), (None, 0, None))
                       (cgp_genome, observations,
                        {"inputs1": target_weights1, "inputs2": target_weights2}))
 
@@ -316,7 +316,7 @@ def test_gradient_optimization_of_input_weights() -> None:
 
     # Loss = mean squared error
     def loss_fn(weights_dict, genome, inputs, target_y):
-        pred_y = jax.vmap(cgp.apply, (None, 0, None))(genome, inputs, weights_dict)
+        pred_y = jax.vmap(jax.jit(cgp.apply), (None, 0, None))(genome, inputs, weights_dict)
         return jnp.mean((pred_y - target_y) ** 2)
 
     @jax.jit
@@ -331,6 +331,7 @@ def test_gradient_optimization_of_input_weights() -> None:
     opt_state = optimizer.init(optimizable_weights)
 
     # Training loop
+    train_loss = jnp.inf
     for i in range(50_000):
         optimizable_weights, opt_state, train_loss = step(cgp_genome, optimizable_weights, opt_state, observations,
                                                           target_outputs)
