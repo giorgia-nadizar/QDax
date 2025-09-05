@@ -71,7 +71,6 @@ class CGP(GGP):
         random_n = random.uniform(key=n_key, shape=(self.n_nodes * 3,))
         random_x, random_y, random_f = jnp.split(random_n, 3)
         random_out = random.uniform(key=out_key, shape=out_mask.shape)
-        random_weights = random.uniform(key=weights_key, shape=(self.n_nodes * 3,)) * 2 - 1
 
         # rescale, cast to integer and store the random genome parts
         return {
@@ -81,7 +80,7 @@ class CGP(GGP):
                 "functions": jnp.floor(random_f * f_mask).astype(int),
                 "outputs": out_mask if self.fixed_outputs else jnp.floor(random_out * out_mask).astype(int),
             },
-            "weights": self._init_weights(random_weights),
+            "weights": self.init_weights(weights_key),
         }
 
     def apply(self,

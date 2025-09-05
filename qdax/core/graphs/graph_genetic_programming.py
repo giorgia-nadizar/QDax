@@ -205,8 +205,9 @@ class GGP:
         y_weight = f"{genotype['weights']['inputs2'][gene_idx]:.2f}*" if self.weighted_inputs else ""
         return input_weight, x_weight, y_weight
 
-    def _init_weights(self, random_weights: jnp.ndarray) -> Dict[str, jnp.ndarray]:
+    def init_weights(self, key: RNGKey) -> Dict[str, jnp.ndarray]:
         """Initialize the weights' dictionary."""
+        random_weights = random.uniform(key=key, shape=(self.n_functions * 3,)) * 2 - 1
         random_node_weights, random_input_weights1, random_input_weights2 = jnp.split(random_weights, 3)
         return {
             "functions": random_node_weights if self.weighted_functions else jnp.ones_like(random_node_weights),

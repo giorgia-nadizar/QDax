@@ -76,7 +76,6 @@ class LGP(GGP):
         lines_key, weights_key = random.split(rnd_key, 2)
         random_lines = random.uniform(key=lines_key, shape=(self.n_program_lines * 4,))
         random_targets, random_x, random_y, random_f = jnp.split(random_lines, 4)
-        random_weights = random.uniform(key=weights_key, shape=(self.n_program_lines * 3,)) * 2 - 1
 
         # rescale, cast to integer and store the random genome parts
         return {
@@ -86,7 +85,7 @@ class LGP(GGP):
                 "inputs2": jnp.floor(random_y * rhs_mask).astype(int),
                 "functions": jnp.floor(random_f * f_mask).astype(int)
             },
-            "weights": self._init_weights(random_weights),
+            "weights": self.init_weights(weights_key),
         }
 
     def apply(self,
